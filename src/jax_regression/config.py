@@ -1,0 +1,38 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import Path
+
+
+@dataclass(frozen=True)
+class ExperimentConfig:
+    seed: int = 42
+    hidden_dims: tuple[int, ...] = (64, 32)
+    epochs: int = 300
+    batch_size: int = 32
+    learning_rate: float = 0.01
+    momentum: float = 0.90
+    l2_penalty: float = 1e-4
+    patience: int = 30
+    ridge_alpha: float = 1.0
+    output_dir: Path = Path("artifacts")
+    report_dir: Path = Path("reports")
+
+    def __post_init__(self) -> None:
+        if not self.hidden_dims or any(width < 1 for width in self.hidden_dims):
+            raise ValueError("hidden_dims must contain positive widths")
+        if self.epochs < 1 or self.batch_size < 1:
+            raise ValueError("epochs and batch_size must be at least 1")
+        if self.learning_rate <= 0:
+            raise ValueError("learning_rate must be greater than 0")
+        if not 0 <= self.momentum < 1:
+            raise ValueError("momentum must be between 0 and 1")
+        if self.l2_penalty < 0 or self.ridge_alpha < 0:
+            raise ValueError("regularization values must not be negative")
+        if self.patience < 1:
+            raise ValueError("patience must be at least 1")
+
+
+def prepare_output_directories(config: ExperimentConfig) -> None:
+    config.output_dir.mkdir(parents=True, exist_ok=True)
+    config.report_dir.mkdir(parents=True, exist_ok=True)
