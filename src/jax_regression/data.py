@@ -17,6 +17,8 @@ class RegressionData:
     x_test: np.ndarray
     y_test: np.ndarray
     feature_names: tuple[str, ...]
+    feature_mean: tuple[float, ...]
+    feature_scale: tuple[float, ...]
     target_mean: float
     target_scale: float
 
@@ -61,6 +63,8 @@ def load_regression_data(
         x_test=feature_scaler.transform(x_test).astype(np.float32),
         y_test=target_scaler.transform(y_test.reshape(-1, 1)).ravel().astype(np.float32),
         feature_names=tuple(dataset.feature_names),
+        feature_mean=tuple(float(value) for value in feature_scaler.mean_),
+        feature_scale=tuple(float(value) for value in feature_scaler.scale_),
         target_mean=float(target_scaler.mean_[0]),
         target_scale=float(target_scaler.scale_[0]),
     )
