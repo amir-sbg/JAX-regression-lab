@@ -8,7 +8,13 @@ from jax_regression.baseline import fit_ridge, predict_ridge
 from jax_regression.config import ExperimentConfig
 from jax_regression.data import load_regression_data
 from jax_regression.evaluate import regression_metrics
-from jax_regression.model import init_mlp, parameter_count, predict_batch
+from jax_regression.model import (
+    init_mlp,
+    load_parameters,
+    parameter_count,
+    predict_batch,
+    save_parameters,
+)
 from jax_regression.train import TrainingConfig, train_model
 
 
@@ -37,6 +43,19 @@ def test_mlp_shapes_and_parameter_count() -> None:
     predictions = predict_batch(parameters, np.zeros((5, 3), dtype=np.float32))
     assert predictions.shape == (5,)
     assert parameter_count(parameters) == 73
+
+
+def test_saved_parameters_round_trip(tmp_path) -> None:
+    parameters = init_mlp(3, (5,), jax.random.PRNGKey(4))
+    checkpoint = tmp_path / "parameters.npz"
+    save_parameters(parameters, checkpoint)
+
+    restored = load_parameters(checkpoint)
+    features = np.ones((4, 3), dtype=np.float32)
+    np.testing.assert_allclose(
+        predict_batch(parameters, features),
+        predict_batch(restored, features),
+    )
 
 
 def test_training_improves_a_small_regression_problem() -> None:

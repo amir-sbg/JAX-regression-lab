@@ -62,3 +62,28 @@ def save_parameters(
         arrays[f"layer_{index}_weights"] = np.asarray(layer["weights"])
         arrays[f"layer_{index}_bias"] = np.asarray(layer["bias"])
     np.savez(path, **arrays)
+
+
+def load_parameters(path: Path) -> tuple[dict[str, jax.Array], ...]:
+    with np.load(path, allow_pickle=False) as arrays:
+        indices = sorted(
+            int(key.removeprefix("layer_").removesuffix("_weights"))
+            for key in arrays.files
+            if key.startswith("layer_") and key.endswith("_weights")
+        )
+        if not indices or indices != list(range(len(indices))):
+            raise ValueError("checkpoint must contain consecutive MLP layers")
+
+        parameters = []
+        for index in indices:
+            weights_key = f"layer_{index}_weights"
+            bias_key = f"layer_{index}_bias"
+            if bias_key not in arrays.files:
+                raise ValueError(f"checkpoint is missing {bias_key}")
+            parameters.append(
+                {
+                    "weights": jnp.asarray(arrays[weights_key]),
+                    "bias": jnp.asarray(arrays[bias_key]),
+                }
+            )
+    return tuple(parameters)
