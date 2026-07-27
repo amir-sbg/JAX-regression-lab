@@ -24,6 +24,7 @@ class TrainingResult:
     parameters: tuple[dict[str, jax.Array], ...]
     history: list[dict[str, float]]
     best_epoch: int
+    best_validation_loss: float
 
 
 def mse_loss(parameters, features, targets, l2_penalty: float = 0.0):
@@ -131,4 +132,5 @@ def train_model(
         parameters=best_parameters,
         history=history,
         best_epoch=best_epoch,
+        best_validation_loss=best_validation_loss,
     )

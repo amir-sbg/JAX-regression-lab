@@ -95,6 +95,7 @@ def run(config: ExperimentConfig) -> dict:
                 "hidden_dims": list(config.hidden_dims),
                 "parameter_count": parameter_count(training.parameters),
                 "best_epoch": training.best_epoch,
+                "best_validation_loss": training.best_validation_loss,
             },
             "metrics": metrics,
         },

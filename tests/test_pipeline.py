@@ -72,6 +72,10 @@ def test_training_improves_a_small_regression_problem() -> None:
         jax.random.PRNGKey(2),
     )
     assert result.history[-1]["train_loss"] < result.history[0]["train_loss"]
+    assert result.best_epoch >= 1
+    assert result.best_validation_loss == pytest.approx(
+        result.history[result.best_epoch - 1]["validation_loss"]
+    )
 
 
 def test_metrics_include_standard_regression_values() -> None:
