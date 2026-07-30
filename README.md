@@ -14,6 +14,7 @@ The pipeline covers:
 - JIT-compiled momentum updates with `jax.jit`
 - batched prediction with `jax.vmap`
 - validation-based early stopping and a held-out test report
+- residual diagnostics for checking bias and error spread
 
 The data contains 442 samples, 10 numeric features, and a continuous disease-progression target. Predictions and error metrics are reported in the original target scale.
 
@@ -81,10 +82,13 @@ reports/
 ├── metrics.json
 ├── run_config.json
 ├── run_summary.json
+├── residual_summary.json
+├── residuals.csv
+├── residuals.png
 └── training_history.png
 ```
 
-`metrics.json` reports MSE, RMSE, MAE, and R² for both the ridge baseline and the JAX MLP. The training plot uses the scaled target used during optimization; test metrics are converted back to the original target units.
+`metrics.json` reports MSE, RMSE, MAE, and R² for both the ridge baseline and the JAX MLP. The residual report keeps per-sample errors and summary statistics in the original target scale, which makes it easier to see whether the neural model is biased high or low on the held-out set.
 
 ## Project structure
 

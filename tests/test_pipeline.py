@@ -7,7 +7,7 @@ import jax
 from jax_regression.baseline import fit_ridge, predict_ridge
 from jax_regression.config import ExperimentConfig
 from jax_regression.data import load_regression_data
-from jax_regression.evaluate import regression_metrics
+from jax_regression.evaluate import regression_metrics, residual_summary
 from jax_regression.model import (
     init_mlp,
     load_parameters,
@@ -83,6 +83,21 @@ def test_metrics_include_standard_regression_values() -> None:
     assert metrics["mse"] == 0.5
     assert metrics["rmse"] == pytest.approx(np.sqrt(0.5))
     assert metrics["mae"] == 0.5
+
+
+def test_metrics_handle_constant_targets() -> None:
+    perfect = regression_metrics(np.array([2.0, 2.0]), np.array([2.0, 2.0]))
+    imperfect = regression_metrics(np.array([2.0, 2.0]), np.array([2.0, 3.0]))
+
+    assert perfect["r2"] == 1.0
+    assert imperfect["r2"] == 0.0
+
+
+def test_residual_summary_reports_error_shape() -> None:
+    summary = residual_summary(np.array([1.0, 2.0, 3.0]), np.array([1.5, 1.5, 4.0]))
+
+    assert summary["mean_residual"] == pytest.approx(1 / 3)
+    assert summary["max_abs_residual"] == 1.0
 
 
 def test_experiment_config_rejects_invalid_learning_rate() -> None:

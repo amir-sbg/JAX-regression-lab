@@ -12,7 +12,13 @@ import pandas as pd
 from .baseline import fit_ridge, predict_ridge
 from .config import ExperimentConfig, prepare_output_directories
 from .data import load_regression_data
-from .evaluate import regression_metrics, save_json, save_training_plot
+from .evaluate import (
+    regression_metrics,
+    residual_summary,
+    save_json,
+    save_residual_plot,
+    save_training_plot,
+)
 from .model import init_mlp, parameter_count, predict_batch, save_parameters
 from .train import TrainingConfig, train_model
 
@@ -68,6 +74,19 @@ def run(config: ExperimentConfig) -> dict:
         "ridge": regression_metrics(actual_targets, ridge_predictions),
         "mlp": regression_metrics(actual_targets, mlp_predictions),
     }
+    residuals = pd.DataFrame(
+        {
+            "actual": actual_targets,
+            "ridge_prediction": ridge_predictions,
+            "ridge_residual": ridge_predictions - actual_targets,
+            "mlp_prediction": mlp_predictions,
+            "mlp_residual": mlp_predictions - actual_targets,
+        }
+    )
+    residual_report = {
+        "ridge": residual_summary(actual_targets, ridge_predictions),
+        "mlp": residual_summary(actual_targets, mlp_predictions),
+    }
 
     save_parameters(training.parameters, config.output_dir / "mlp_parameters.npz")
     np.save(config.output_dir / "ridge_parameters.npy", np.asarray(ridge_parameters))
@@ -75,8 +94,11 @@ def run(config: ExperimentConfig) -> dict:
         config.output_dir / "training_history.csv",
         index=False,
     )
+    residuals.to_csv(config.report_dir / "residuals.csv", index=False)
     save_training_plot(training.history, config.report_dir / "training_history.png")
+    save_residual_plot(actual_targets, mlp_predictions, config.report_dir / "residuals.png")
     save_json(metrics, config.report_dir / "metrics.json")
+    save_json(residual_report, config.report_dir / "residual_summary.json")
     save_json(
         {
             "backend": jax.default_backend(),
@@ -98,6 +120,7 @@ def run(config: ExperimentConfig) -> dict:
                 "best_validation_loss": training.best_validation_loss,
             },
             "metrics": metrics,
+            "residuals": residual_report,
         },
         config.report_dir / "run_summary.json",
     )
