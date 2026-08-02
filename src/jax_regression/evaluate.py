@@ -13,6 +13,10 @@ import numpy as np
 def regression_metrics(targets, predictions) -> dict[str, float]:
     actual = np.asarray(targets, dtype=np.float64)
     estimated = np.asarray(predictions, dtype=np.float64)
+    if actual.shape != estimated.shape:
+        raise ValueError("targets and predictions must have the same shape")
+    if actual.size == 0:
+        raise ValueError("targets and predictions must not be empty")
     residuals = estimated - actual
     mse = float(np.mean(residuals**2))
     total_variation = np.sum((actual - actual.mean()) ** 2)

@@ -12,6 +12,7 @@ import pandas as pd
 from .baseline import fit_ridge, predict_ridge
 from .config import ExperimentConfig, prepare_output_directories
 from .data import load_regression_data
+from .diagnostics import feature_sensitivity
 from .evaluate import (
     regression_metrics,
     residual_summary,
@@ -87,6 +88,17 @@ def run(config: ExperimentConfig) -> dict:
         "ridge": residual_summary(actual_targets, ridge_predictions),
         "mlp": residual_summary(actual_targets, mlp_predictions),
     }
+    sensitivity_report = {
+        "description": (
+            "Mean input gradients for the trained MLP on standardized test features. "
+            "Values are in the scaled target space used during optimization."
+        ),
+        "features": feature_sensitivity(
+            training.parameters,
+            data.x_test,
+            data.feature_names,
+        ),
+    }
 
     save_parameters(training.parameters, config.output_dir / "mlp_parameters.npz")
     np.save(config.output_dir / "ridge_parameters.npy", np.asarray(ridge_parameters))
@@ -99,6 +111,7 @@ def run(config: ExperimentConfig) -> dict:
     save_residual_plot(actual_targets, mlp_predictions, config.report_dir / "residuals.png")
     save_json(metrics, config.report_dir / "metrics.json")
     save_json(residual_report, config.report_dir / "residual_summary.json")
+    save_json(sensitivity_report, config.report_dir / "feature_sensitivity.json")
     save_json(
         {
             "backend": jax.default_backend(),
@@ -121,6 +134,7 @@ def run(config: ExperimentConfig) -> dict:
             },
             "metrics": metrics,
             "residuals": residual_report,
+            "top_feature_sensitivity": sensitivity_report["features"][:5],
         },
         config.report_dir / "run_summary.json",
     )

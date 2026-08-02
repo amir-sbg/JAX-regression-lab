@@ -3,10 +3,12 @@ from __future__ import annotations
 import numpy as np
 import pytest
 import jax
+import jax.numpy as jnp
 
 from jax_regression.baseline import fit_ridge, predict_ridge
 from jax_regression.config import ExperimentConfig
 from jax_regression.data import load_regression_data
+from jax_regression.diagnostics import feature_sensitivity
 from jax_regression.evaluate import regression_metrics, residual_summary
 from jax_regression.model import (
     init_mlp,
@@ -85,6 +87,13 @@ def test_metrics_include_standard_regression_values() -> None:
     assert metrics["mae"] == 0.5
 
 
+def test_metrics_reject_bad_inputs() -> None:
+    with pytest.raises(ValueError, match="same shape"):
+        regression_metrics(np.array([1.0]), np.array([1.0, 2.0]))
+    with pytest.raises(ValueError, match="must not be empty"):
+        regression_metrics(np.array([]), np.array([]))
+
+
 def test_metrics_handle_constant_targets() -> None:
     perfect = regression_metrics(np.array([2.0, 2.0]), np.array([2.0, 2.0]))
     imperfect = regression_metrics(np.array([2.0, 2.0]), np.array([2.0, 3.0]))
@@ -98,6 +107,21 @@ def test_residual_summary_reports_error_shape() -> None:
 
     assert summary["mean_residual"] == pytest.approx(1 / 3)
     assert summary["max_abs_residual"] == 1.0
+
+
+def test_feature_sensitivity_ranks_input_gradients() -> None:
+    parameters = (
+        {
+            "weights": jnp.array([[2.0], [0.25]], dtype=jnp.float32),
+            "bias": jnp.zeros((1,), dtype=jnp.float32),
+        },
+    )
+    features = np.ones((3, 2), dtype=np.float32)
+    rows = feature_sensitivity(parameters, features, ("strong", "weak"))
+
+    assert rows[0]["feature"] == "strong"
+    assert rows[0]["rank"] == 1
+    assert rows[0]["mean_abs_gradient"] == pytest.approx(2.0)
 
 
 def test_experiment_config_rejects_invalid_learning_rate() -> None:
