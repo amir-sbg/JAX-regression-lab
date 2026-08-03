@@ -63,6 +63,7 @@ def run(config: ExperimentConfig) -> dict:
             momentum=config.momentum,
             l2_penalty=config.l2_penalty,
             patience=config.patience,
+            gradient_clip=config.gradient_clip,
         ),
         key=training_key,
     )
@@ -152,6 +153,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--momentum", type=float, default=0.90)
     parser.add_argument("--l2-penalty", type=float, default=1e-4)
     parser.add_argument("--patience", type=int, default=30)
+    parser.add_argument("--gradient-clip", type=float)
     parser.add_argument("--ridge-alpha", type=float, default=1.0)
     parser.add_argument("--output-dir", type=Path, default=Path("artifacts"))
     parser.add_argument("--report-dir", type=Path, default=Path("reports"))

@@ -17,7 +17,7 @@ from jax_regression.model import (
     predict_batch,
     save_parameters,
 )
-from jax_regression.train import TrainingConfig, train_model
+from jax_regression.train import TrainingConfig, clip_gradients, train_model, tree_l2_norm
 
 
 def test_data_split_and_scaling_are_deterministic() -> None:
@@ -78,6 +78,15 @@ def test_training_improves_a_small_regression_problem() -> None:
     assert result.best_validation_loss == pytest.approx(
         result.history[result.best_epoch - 1]["validation_loss"]
     )
+    assert "gradient_norm" in result.history[-1]
+
+
+def test_gradient_clipping_rescales_large_updates() -> None:
+    gradients = ({"weights": jnp.array([3.0, 4.0], dtype=jnp.float32)},)
+    clipped, norm = clip_gradients(gradients, max_norm=1.0)
+
+    assert float(norm) == pytest.approx(5.0)
+    assert float(tree_l2_norm(clipped)) == pytest.approx(1.0)
 
 
 def test_metrics_include_standard_regression_values() -> None:
@@ -127,3 +136,8 @@ def test_feature_sensitivity_ranks_input_gradients() -> None:
 def test_experiment_config_rejects_invalid_learning_rate() -> None:
     with pytest.raises(ValueError, match="learning_rate"):
         ExperimentConfig(learning_rate=0)
+
+
+def test_experiment_config_rejects_invalid_gradient_clip() -> None:
+    with pytest.raises(ValueError, match="gradient_clip"):
+        ExperimentConfig(gradient_clip=0)

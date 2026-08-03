@@ -14,6 +14,7 @@ class ExperimentConfig:
     momentum: float = 0.90
     l2_penalty: float = 1e-4
     patience: int = 30
+    gradient_clip: float | None = None
     ridge_alpha: float = 1.0
     output_dir: Path = Path("artifacts")
     report_dir: Path = Path("reports")
@@ -31,6 +32,8 @@ class ExperimentConfig:
             raise ValueError("regularization values must not be negative")
         if self.patience < 1:
             raise ValueError("patience must be at least 1")
+        if self.gradient_clip is not None and self.gradient_clip <= 0:
+            raise ValueError("gradient_clip must be positive when provided")
 
 
 def prepare_output_directories(config: ExperimentConfig) -> None:

@@ -12,6 +12,7 @@ The pipeline covers:
 - a fully connected MLP represented as a JAX parameter PyTree
 - automatic differentiation with `jax.value_and_grad`
 - JIT-compiled momentum updates with `jax.jit`
+- optional global-norm gradient clipping for unstable small-batch runs
 - batched prediction with `jax.vmap`
 - validation-based early stopping and a held-out test report
 - residual diagnostics for checking bias and error spread
@@ -66,6 +67,7 @@ python -m jax_regression.pipeline \
   --hidden-dims 64 32 \
   --learning-rate 0.01 \
   --momentum 0.90 \
+  --gradient-clip 5.0 \
   --patience 30
 ```
 
