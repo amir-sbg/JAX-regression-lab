@@ -62,6 +62,8 @@ Training options can be changed from the command line:
 
 ```bash
 python -m jax_regression.pipeline \
+  --validation-size 0.20 \
+  --test-size 0.20 \
   --epochs 300 \
   --batch-size 32 \
   --hidden-dims 64 32 \

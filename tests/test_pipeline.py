@@ -32,6 +32,13 @@ def test_data_split_and_scaling_are_deterministic() -> None:
     np.testing.assert_allclose(first.x_train.mean(axis=0), 0, atol=1e-6)
 
 
+def test_data_loader_accepts_custom_split_sizes() -> None:
+    data = load_regression_data(seed=7, validation_size=0.10, test_size=0.30)
+
+    assert len(data.x_train) + len(data.x_validation) + len(data.x_test) == 442
+    assert len(data.x_validation) < len(data.x_test)
+
+
 def test_ridge_baseline_matches_linear_relationship() -> None:
     features = np.array([[0.0], [1.0], [2.0], [3.0]], dtype=np.float32)
     targets = 2 * features[:, 0] + 1
@@ -141,3 +148,8 @@ def test_experiment_config_rejects_invalid_learning_rate() -> None:
 def test_experiment_config_rejects_invalid_gradient_clip() -> None:
     with pytest.raises(ValueError, match="gradient_clip"):
         ExperimentConfig(gradient_clip=0)
+
+
+def test_experiment_config_rejects_invalid_split_sizes() -> None:
+    with pytest.raises(ValueError, match="sum to less than 1"):
+        ExperimentConfig(validation_size=0.5, test_size=0.5)

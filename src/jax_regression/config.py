@@ -7,6 +7,8 @@ from pathlib import Path
 @dataclass(frozen=True)
 class ExperimentConfig:
     seed: int = 42
+    validation_size: float = 0.20
+    test_size: float = 0.20
     hidden_dims: tuple[int, ...] = (64, 32)
     epochs: int = 300
     batch_size: int = 32
@@ -22,6 +24,10 @@ class ExperimentConfig:
     def __post_init__(self) -> None:
         if not self.hidden_dims or any(width < 1 for width in self.hidden_dims):
             raise ValueError("hidden_dims must contain positive widths")
+        if not 0 < self.validation_size < 1 or not 0 < self.test_size < 1:
+            raise ValueError("validation_size and test_size must be between 0 and 1")
+        if self.validation_size + self.test_size >= 1:
+            raise ValueError("validation_size and test_size must sum to less than 1")
         if self.epochs < 1 or self.batch_size < 1:
             raise ValueError("epochs and batch_size must be at least 1")
         if self.learning_rate <= 0:

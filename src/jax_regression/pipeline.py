@@ -34,7 +34,11 @@ def _config_payload(config: ExperimentConfig) -> dict:
 
 def run(config: ExperimentConfig) -> dict:
     prepare_output_directories(config)
-    data = load_regression_data(seed=config.seed)
+    data = load_regression_data(
+        seed=config.seed,
+        validation_size=config.validation_size,
+        test_size=config.test_size,
+    )
     key = jax.random.PRNGKey(config.seed)
     model_key, training_key = jax.random.split(key)
 
@@ -146,6 +150,8 @@ def run(config: ExperimentConfig) -> dict:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run the JAX regression pipeline.")
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--validation-size", type=float, default=0.20)
+    parser.add_argument("--test-size", type=float, default=0.20)
     parser.add_argument("--hidden-dims", nargs="+", type=int, default=[64, 32])
     parser.add_argument("--epochs", type=int, default=300)
     parser.add_argument("--batch-size", type=int, default=32)
