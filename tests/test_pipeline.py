@@ -125,6 +125,13 @@ def test_residual_summary_reports_error_shape() -> None:
     assert summary["max_abs_residual"] == 1.0
 
 
+def test_residual_summary_rejects_bad_inputs() -> None:
+    with pytest.raises(ValueError, match="same shape"):
+        residual_summary(np.array([1.0]), np.array([1.0, 2.0]))
+    with pytest.raises(ValueError, match="must not be empty"):
+        residual_summary(np.array([]), np.array([]))
+
+
 def test_feature_sensitivity_ranks_input_gradients() -> None:
     parameters = (
         {

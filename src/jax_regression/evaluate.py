@@ -10,13 +10,18 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-def regression_metrics(targets, predictions) -> dict[str, float]:
+def _matching_arrays(targets, predictions) -> tuple[np.ndarray, np.ndarray]:
     actual = np.asarray(targets, dtype=np.float64)
     estimated = np.asarray(predictions, dtype=np.float64)
     if actual.shape != estimated.shape:
         raise ValueError("targets and predictions must have the same shape")
     if actual.size == 0:
         raise ValueError("targets and predictions must not be empty")
+    return actual, estimated
+
+
+def regression_metrics(targets, predictions) -> dict[str, float]:
+    actual, estimated = _matching_arrays(targets, predictions)
     residuals = estimated - actual
     mse = float(np.mean(residuals**2))
     total_variation = np.sum((actual - actual.mean()) ** 2)
@@ -33,8 +38,7 @@ def regression_metrics(targets, predictions) -> dict[str, float]:
 
 
 def residual_summary(targets, predictions) -> dict[str, float]:
-    actual = np.asarray(targets, dtype=np.float64)
-    estimated = np.asarray(predictions, dtype=np.float64)
+    actual, estimated = _matching_arrays(targets, predictions)
     residuals = estimated - actual
     return {
         "mean_residual": float(np.mean(residuals)),
