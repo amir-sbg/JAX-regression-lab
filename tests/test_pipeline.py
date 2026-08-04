@@ -9,7 +9,11 @@ from jax_regression.baseline import fit_ridge, predict_ridge
 from jax_regression.config import ExperimentConfig
 from jax_regression.data import load_regression_data
 from jax_regression.diagnostics import feature_sensitivity
-from jax_regression.evaluate import regression_metrics, residual_summary
+from jax_regression.evaluate import (
+    binned_residual_summary,
+    regression_metrics,
+    residual_summary,
+)
 from jax_regression.model import (
     init_mlp,
     load_parameters,
@@ -130,6 +134,23 @@ def test_residual_summary_rejects_bad_inputs() -> None:
         residual_summary(np.array([1.0]), np.array([1.0, 2.0]))
     with pytest.raises(ValueError, match="must not be empty"):
         residual_summary(np.array([]), np.array([]))
+
+
+def test_binned_residual_summary_groups_target_ranges() -> None:
+    rows = binned_residual_summary(
+        np.array([0.0, 1.0, 2.0, 3.0]),
+        np.array([0.5, 1.5, 1.5, 2.5]),
+        bins=2,
+    )
+
+    assert len(rows) == 2
+    assert rows[0]["examples"] == 2
+    assert rows[0]["mae"] == 0.5
+
+
+def test_binned_residual_summary_rejects_bad_bin_count() -> None:
+    with pytest.raises(ValueError, match="bins"):
+        binned_residual_summary(np.array([1.0]), np.array([1.0]), bins=0)
 
 
 def test_feature_sensitivity_ranks_input_gradients() -> None:

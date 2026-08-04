@@ -50,6 +50,48 @@ def residual_summary(targets, predictions) -> dict[str, float]:
     }
 
 
+def binned_residual_summary(
+    targets,
+    predictions,
+    bins: int = 4,
+) -> list[dict[str, float | int]]:
+    if bins < 1:
+        raise ValueError("bins must be at least 1")
+    actual, estimated = _matching_arrays(targets, predictions)
+    residuals = estimated - actual
+
+    if float(actual.min()) == float(actual.max()):
+        edges = np.array([actual.min(), actual.max()], dtype=np.float64)
+    else:
+        edges = np.linspace(actual.min(), actual.max(), bins + 1)
+
+    rows = []
+    for index in range(len(edges) - 1):
+        left = edges[index]
+        right = edges[index + 1]
+        if index == len(edges) - 2:
+            mask = (actual >= left) & (actual <= right)
+        else:
+            mask = (actual >= left) & (actual < right)
+        if not np.any(mask):
+            continue
+
+        bin_residuals = residuals[mask]
+        rows.append(
+            {
+                "bin": index + 1,
+                "target_min": float(left),
+                "target_max": float(right),
+                "examples": int(np.sum(mask)),
+                "mean_actual": float(np.mean(actual[mask])),
+                "mean_prediction": float(np.mean(estimated[mask])),
+                "mean_residual": float(np.mean(bin_residuals)),
+                "mae": float(np.mean(np.abs(bin_residuals))),
+            }
+        )
+    return rows
+
+
 def save_json(value: dict, path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(value, indent=2) + "\n")

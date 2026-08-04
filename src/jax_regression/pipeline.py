@@ -14,6 +14,7 @@ from .config import ExperimentConfig, prepare_output_directories
 from .data import load_regression_data
 from .diagnostics import feature_sensitivity
 from .evaluate import (
+    binned_residual_summary,
     regression_metrics,
     residual_summary,
     save_json,
@@ -93,6 +94,10 @@ def run(config: ExperimentConfig) -> dict:
         "ridge": residual_summary(actual_targets, ridge_predictions),
         "mlp": residual_summary(actual_targets, mlp_predictions),
     }
+    residual_bins = {
+        "ridge": binned_residual_summary(actual_targets, ridge_predictions),
+        "mlp": binned_residual_summary(actual_targets, mlp_predictions),
+    }
     sensitivity_report = {
         "description": (
             "Mean input gradients for the trained MLP on standardized test features. "
@@ -116,6 +121,7 @@ def run(config: ExperimentConfig) -> dict:
     save_residual_plot(actual_targets, mlp_predictions, config.report_dir / "residuals.png")
     save_json(metrics, config.report_dir / "metrics.json")
     save_json(residual_report, config.report_dir / "residual_summary.json")
+    save_json(residual_bins, config.report_dir / "residual_bins.json")
     save_json(sensitivity_report, config.report_dir / "feature_sensitivity.json")
     save_json(
         {
@@ -139,6 +145,7 @@ def run(config: ExperimentConfig) -> dict:
             },
             "metrics": metrics,
             "residuals": residual_report,
+            "residual_bins": residual_bins,
             "top_feature_sensitivity": sensitivity_report["features"][:5],
         },
         config.report_dir / "run_summary.json",

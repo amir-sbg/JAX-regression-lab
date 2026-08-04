@@ -16,6 +16,7 @@ The pipeline covers:
 - batched prediction with `jax.vmap`
 - validation-based early stopping and a held-out test report
 - residual diagnostics for checking bias and error spread
+- target-range binned residual diagnostics
 - input-gradient feature sensitivity for the trained JAX MLP
 
 The data contains 442 samples, 10 numeric features, and a continuous disease-progression target. Predictions and error metrics are reported in the original target scale.
@@ -88,6 +89,7 @@ reports/
 ├── feature_sensitivity.json
 ├── run_config.json
 ├── run_summary.json
+├── residual_bins.json
 ├── residual_summary.json
 ├── residuals.csv
 ├── residuals.png
