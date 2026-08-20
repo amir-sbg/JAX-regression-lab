@@ -52,6 +52,25 @@ def residual_summary(targets, predictions) -> dict[str, float]:
     }
 
 
+def empirical_interval_summary(
+    targets,
+    predictions,
+    coverage: float = 0.90,
+) -> dict[str, float]:
+    if not 0.0 < coverage < 1.0:
+        raise ValueError("coverage must be between 0 and 1")
+    actual, estimated = _matching_arrays(targets, predictions)
+    absolute_errors = np.abs(estimated - actual)
+    radius = float(np.quantile(absolute_errors, coverage))
+    covered = np.abs(estimated - actual) <= radius
+    return {
+        "target_coverage": float(coverage),
+        "observed_coverage": float(np.mean(covered)),
+        "interval_radius": radius,
+        "mean_interval_width": float(2.0 * radius),
+    }
+
+
 def binned_residual_summary(
     targets,
     predictions,

@@ -11,6 +11,7 @@ from jax_regression.data import load_regression_data
 from jax_regression.diagnostics import feature_sensitivity
 from jax_regression.evaluate import (
     binned_residual_summary,
+    empirical_interval_summary,
     regression_metrics,
     residual_summary,
 )
@@ -153,6 +154,23 @@ def test_binned_residual_summary_groups_target_ranges() -> None:
 def test_binned_residual_summary_rejects_bad_bin_count() -> None:
     with pytest.raises(ValueError, match="bins"):
         binned_residual_summary(np.array([1.0]), np.array([1.0]), bins=0)
+
+
+def test_empirical_interval_summary_uses_residual_quantile() -> None:
+    summary = empirical_interval_summary(
+        np.array([0.0, 1.0, 2.0, 3.0]),
+        np.array([0.0, 1.0, 3.0, 1.0]),
+        coverage=0.50,
+    )
+
+    assert summary["target_coverage"] == 0.50
+    assert summary["interval_radius"] == pytest.approx(0.5)
+    assert summary["observed_coverage"] == pytest.approx(0.5)
+
+
+def test_empirical_interval_summary_rejects_bad_coverage() -> None:
+    with pytest.raises(ValueError, match="coverage"):
+        empirical_interval_summary(np.array([1.0]), np.array([1.0]), coverage=1.0)
 
 
 def test_feature_sensitivity_ranks_input_gradients() -> None:
