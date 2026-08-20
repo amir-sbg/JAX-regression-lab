@@ -17,6 +17,8 @@ def _matching_arrays(targets, predictions) -> tuple[np.ndarray, np.ndarray]:
         raise ValueError("targets and predictions must have the same shape")
     if actual.size == 0:
         raise ValueError("targets and predictions must not be empty")
+    if not np.all(np.isfinite(actual)) or not np.all(np.isfinite(estimated)):
+        raise ValueError("targets and predictions must contain only finite values")
     return actual, estimated
 
 

@@ -112,6 +112,8 @@ def test_metrics_reject_bad_inputs() -> None:
         regression_metrics(np.array([1.0]), np.array([1.0, 2.0]))
     with pytest.raises(ValueError, match="must not be empty"):
         regression_metrics(np.array([]), np.array([]))
+    with pytest.raises(ValueError, match="finite"):
+        regression_metrics(np.array([1.0]), np.array([np.nan]))
 
 
 def test_metrics_handle_constant_targets() -> None:
