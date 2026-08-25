@@ -52,6 +52,17 @@ def test_ridge_baseline_matches_linear_relationship() -> None:
     np.testing.assert_allclose(predictions, targets, atol=1e-5)
 
 
+def test_ridge_baseline_validates_input_shapes() -> None:
+    with pytest.raises(ValueError, match="two-dimensional"):
+        fit_ridge(np.array([1.0, 2.0]), np.array([1.0, 2.0]))
+    with pytest.raises(ValueError, match="same number"):
+        fit_ridge(np.ones((3, 2)), np.ones(2))
+    with pytest.raises(ValueError, match="alpha"):
+        fit_ridge(np.ones((3, 2)), np.ones(3), alpha=-0.1)
+    with pytest.raises(ValueError, match="one coefficient"):
+        predict_ridge(np.ones(2), np.ones((3, 2)))
+
+
 def test_mlp_shapes_and_parameter_count() -> None:
     parameters = init_mlp(3, (8, 4), jax.random.PRNGKey(0))
     predictions = predict_batch(parameters, np.zeros((5, 3), dtype=np.float32))
