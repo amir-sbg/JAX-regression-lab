@@ -71,6 +71,71 @@ def empirical_interval_summary(
     }
 
 
+def _higher_quantile(values: np.ndarray, level: float) -> float:
+    try:
+        return float(np.quantile(values, level, method="higher"))
+    except TypeError:
+        return float(np.quantile(values, level, interpolation="higher"))
+
+
+def split_conformal_interval_summary(
+    calibration_targets,
+    calibration_predictions,
+    test_targets,
+    test_predictions,
+    coverage: float = 0.90,
+) -> dict[str, float | int]:
+    if not 0.0 < coverage < 1.0:
+        raise ValueError("coverage must be between 0 and 1")
+    calibration_actual, calibration_estimated = _matching_arrays(
+        calibration_targets,
+        calibration_predictions,
+    )
+    test_actual, test_estimated = _matching_arrays(test_targets, test_predictions)
+
+    calibration_errors = np.abs(calibration_estimated - calibration_actual)
+    finite_sample_level = min(
+        1.0,
+        np.ceil((len(calibration_errors) + 1) * coverage) / len(calibration_errors),
+    )
+    radius = _higher_quantile(calibration_errors, finite_sample_level)
+    test_errors = np.abs(test_estimated - test_actual)
+    covered = test_errors <= radius
+    return {
+        "target_coverage": float(coverage),
+        "observed_coverage": float(np.mean(covered)),
+        "undercoverage": float(max(0.0, coverage - np.mean(covered))),
+        "interval_radius": radius,
+        "mean_interval_width": float(2.0 * radius),
+        "calibration_examples": int(len(calibration_errors)),
+        "test_examples": int(len(test_errors)),
+        "quantile_level": float(finite_sample_level),
+    }
+
+
+def interval_calibration_curve(
+    calibration_targets,
+    calibration_predictions,
+    test_targets,
+    test_predictions,
+    coverages: tuple[float, ...] = (0.50, 0.70, 0.80, 0.90, 0.95),
+) -> list[dict[str, float | int]]:
+    if not coverages:
+        raise ValueError("coverages must not be empty")
+    rows = []
+    for coverage in coverages:
+        rows.append(
+            split_conformal_interval_summary(
+                calibration_targets,
+                calibration_predictions,
+                test_targets,
+                test_predictions,
+                coverage=coverage,
+            )
+        )
+    return rows
+
+
 def binned_residual_summary(
     targets,
     predictions,
@@ -128,6 +193,28 @@ def save_training_plot(history: list[dict[str, float]], path: Path) -> None:
     axis.set_xlabel("Epoch")
     axis.set_ylabel("MSE on scaled target")
     axis.set_title("JAX MLP training history")
+    axis.legend()
+    figure.tight_layout()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    figure.savefig(path, dpi=160)
+    plt.close(figure)
+
+
+def save_interval_calibration_plot(
+    curves: dict[str, list[dict[str, float | int]]],
+    path: Path,
+) -> None:
+    figure, axis = plt.subplots(figsize=(5.5, 4))
+    axis.plot([0.45, 1.0], [0.45, 1.0], "--", color="gray", linewidth=1, label="ideal")
+    for name, rows in curves.items():
+        target = [float(row["target_coverage"]) for row in rows]
+        observed = [float(row["observed_coverage"]) for row in rows]
+        axis.plot(target, observed, marker="o", label=name)
+    axis.set_xlim(0.45, 1.0)
+    axis.set_ylim(0.45, 1.0)
+    axis.set_xlabel("Requested coverage")
+    axis.set_ylabel("Observed test coverage")
+    axis.set_title("Split-conformal interval calibration")
     axis.legend()
     figure.tight_layout()
     path.parent.mkdir(parents=True, exist_ok=True)

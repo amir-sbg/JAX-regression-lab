@@ -12,8 +12,10 @@ from jax_regression.diagnostics import feature_sensitivity
 from jax_regression.evaluate import (
     binned_residual_summary,
     empirical_interval_summary,
+    interval_calibration_curve,
     regression_metrics,
     residual_summary,
+    split_conformal_interval_summary,
 )
 from jax_regression.model import (
     init_mlp,
@@ -182,6 +184,44 @@ def test_empirical_interval_summary_uses_residual_quantile() -> None:
 def test_empirical_interval_summary_rejects_bad_coverage() -> None:
     with pytest.raises(ValueError, match="coverage"):
         empirical_interval_summary(np.array([1.0]), np.array([1.0]), coverage=1.0)
+
+
+def test_split_conformal_interval_uses_validation_residuals() -> None:
+    summary = split_conformal_interval_summary(
+        calibration_targets=np.array([0.0, 1.0, 2.0, 3.0]),
+        calibration_predictions=np.array([0.0, 1.25, 2.5, 4.0]),
+        test_targets=np.array([10.0, 20.0, 30.0]),
+        test_predictions=np.array([10.2, 21.2, 30.7]),
+        coverage=0.75,
+    )
+
+    assert summary["interval_radius"] == pytest.approx(1.0)
+    assert summary["observed_coverage"] == pytest.approx(2 / 3)
+    assert summary["calibration_examples"] == 4
+    assert summary["test_examples"] == 3
+
+
+def test_interval_calibration_curve_reports_each_requested_level() -> None:
+    rows = interval_calibration_curve(
+        np.array([0.0, 1.0, 2.0]),
+        np.array([0.0, 1.2, 3.0]),
+        np.array([0.0, 1.0]),
+        np.array([0.1, 1.6]),
+        coverages=(0.50, 0.90),
+    )
+
+    assert [row["target_coverage"] for row in rows] == [0.50, 0.90]
+
+
+def test_split_conformal_interval_rejects_bad_coverage() -> None:
+    with pytest.raises(ValueError, match="coverage"):
+        split_conformal_interval_summary(
+            np.array([1.0]),
+            np.array([1.0]),
+            np.array([1.0]),
+            np.array([1.0]),
+            coverage=0.0,
+        )
 
 
 def test_feature_sensitivity_ranks_input_gradients() -> None:

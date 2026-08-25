@@ -16,11 +16,14 @@ from .diagnostics import feature_sensitivity
 from .evaluate import (
     binned_residual_summary,
     empirical_interval_summary,
+    interval_calibration_curve,
     regression_metrics,
     residual_summary,
+    save_interval_calibration_plot,
     save_json,
     save_residual_plot,
     save_training_plot,
+    split_conformal_interval_summary,
 )
 from .model import init_mlp, parameter_count, predict_batch, save_parameters
 from .train import TrainingConfig, train_model
@@ -49,6 +52,9 @@ def run(config: ExperimentConfig) -> dict:
         data.y_train,
         alpha=config.ridge_alpha,
     )
+    ridge_validation_predictions = np.asarray(
+        predict_ridge(ridge_parameters, data.x_validation)
+    )
     ridge_predictions = np.asarray(predict_ridge(ridge_parameters, data.x_test))
 
     parameters = init_mlp(
@@ -73,8 +79,14 @@ def run(config: ExperimentConfig) -> dict:
         ),
         key=training_key,
     )
+    mlp_validation_predictions = np.asarray(
+        predict_batch(training.parameters, data.x_validation)
+    )
     mlp_predictions = np.asarray(predict_batch(training.parameters, data.x_test))
 
+    validation_targets = data.inverse_target(data.y_validation)
+    ridge_validation_predictions = data.inverse_target(ridge_validation_predictions)
+    mlp_validation_predictions = data.inverse_target(mlp_validation_predictions)
     actual_targets = data.inverse_target(data.y_test)
     ridge_predictions = data.inverse_target(ridge_predictions)
     mlp_predictions = data.inverse_target(mlp_predictions)
@@ -103,6 +115,34 @@ def run(config: ExperimentConfig) -> dict:
         "ridge": empirical_interval_summary(actual_targets, ridge_predictions),
         "mlp": empirical_interval_summary(actual_targets, mlp_predictions),
     }
+    conformal_interval_report = {
+        "ridge": split_conformal_interval_summary(
+            validation_targets,
+            ridge_validation_predictions,
+            actual_targets,
+            ridge_predictions,
+        ),
+        "mlp": split_conformal_interval_summary(
+            validation_targets,
+            mlp_validation_predictions,
+            actual_targets,
+            mlp_predictions,
+        ),
+    }
+    interval_calibration = {
+        "ridge": interval_calibration_curve(
+            validation_targets,
+            ridge_validation_predictions,
+            actual_targets,
+            ridge_predictions,
+        ),
+        "mlp": interval_calibration_curve(
+            validation_targets,
+            mlp_validation_predictions,
+            actual_targets,
+            mlp_predictions,
+        ),
+    }
     sensitivity_report = {
         "description": (
             "Mean input gradients for the trained MLP on standardized test features. "
@@ -124,10 +164,16 @@ def run(config: ExperimentConfig) -> dict:
     residuals.to_csv(config.report_dir / "residuals.csv", index=False)
     save_training_plot(training.history, config.report_dir / "training_history.png")
     save_residual_plot(actual_targets, mlp_predictions, config.report_dir / "residuals.png")
+    save_interval_calibration_plot(
+        interval_calibration,
+        config.report_dir / "interval_calibration.png",
+    )
     save_json(metrics, config.report_dir / "metrics.json")
     save_json(residual_report, config.report_dir / "residual_summary.json")
     save_json(residual_bins, config.report_dir / "residual_bins.json")
     save_json(interval_report, config.report_dir / "interval_summary.json")
+    save_json(conformal_interval_report, config.report_dir / "conformal_intervals.json")
+    save_json(interval_calibration, config.report_dir / "interval_calibration.json")
     save_json(sensitivity_report, config.report_dir / "feature_sensitivity.json")
     save_json(
         {
@@ -153,6 +199,7 @@ def run(config: ExperimentConfig) -> dict:
             "residuals": residual_report,
             "residual_bins": residual_bins,
             "intervals": interval_report,
+            "conformal_intervals": conformal_interval_report,
             "top_feature_sensitivity": sensitivity_report["features"][:5],
         },
         config.report_dir / "run_summary.json",

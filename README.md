@@ -17,6 +17,7 @@ The pipeline covers:
 - validation-based early stopping and a held-out test report
 - residual diagnostics for checking bias and error spread
 - target-range binned residual diagnostics
+- split-conformal interval checks using validation residuals
 - input-gradient feature sensitivity for the trained JAX MLP
 
 The data contains 442 samples, 10 numeric features, and a continuous disease-progression target. Predictions and error metrics are reported in the original target scale.
@@ -85,6 +86,9 @@ artifacts/
 └── training_history.csv
 
 reports/
+├── conformal_intervals.json
+├── interval_calibration.json
+├── interval_calibration.png
 ├── metrics.json
 ├── feature_sensitivity.json
 ├── run_config.json
@@ -96,7 +100,7 @@ reports/
 └── training_history.png
 ```
 
-`metrics.json` reports MSE, RMSE, MAE, and R² for both the ridge baseline and the JAX MLP. The residual report keeps per-sample errors and summary statistics in the original target scale, which makes it easier to see whether the neural model is biased high or low on the held-out set.
+`metrics.json` reports MSE, RMSE, MAE, and R² for both the ridge baseline and the JAX MLP. The residual report keeps per-sample errors and summary statistics in the original target scale, which makes it easier to see whether the neural model is biased high or low on the held-out set. The conformal interval files use validation residuals to estimate prediction bands and then report how well those bands cover the test set.
 
 ## Project structure
 
