@@ -45,8 +45,8 @@ The update is expressed as a pure function over nested parameter and optimizer-s
 ## Run the project
 
 ```bash
-git clone https://github.com/amir-sbg/JAX.git
-cd JAX
+git clone https://github.com/amir-sbg/JAX-regression-lab.git
+cd JAX-regression-lab
 
 python -m venv .venv
 source .venv/bin/activate       # Windows: .venv\Scripts\activate
