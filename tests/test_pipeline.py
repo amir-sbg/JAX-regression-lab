@@ -239,6 +239,22 @@ def test_feature_sensitivity_ranks_input_gradients() -> None:
     assert rows[0]["mean_abs_gradient"] == pytest.approx(2.0)
 
 
+def test_feature_sensitivity_rejects_bad_feature_matrix() -> None:
+    parameters = (
+        {
+            "weights": jnp.array([[1.0]], dtype=jnp.float32),
+            "bias": jnp.zeros((1,), dtype=jnp.float32),
+        },
+    )
+
+    with pytest.raises(ValueError, match="two-dimensional"):
+        feature_sensitivity(parameters, np.array([1.0, 2.0]), ("x",))
+    with pytest.raises(ValueError, match="at least one row"):
+        feature_sensitivity(parameters, np.empty((0, 1), dtype=np.float32), ("x",))
+    with pytest.raises(ValueError, match="finite"):
+        feature_sensitivity(parameters, np.array([[np.nan]], dtype=np.float32), ("x",))
+
+
 def test_experiment_config_rejects_invalid_learning_rate() -> None:
     with pytest.raises(ValueError, match="learning_rate"):
         ExperimentConfig(learning_rate=0)

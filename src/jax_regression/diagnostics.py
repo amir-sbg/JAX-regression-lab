@@ -7,11 +7,22 @@ import numpy as np
 from .model import mlp_apply
 
 
+def _validated_feature_matrix(features: np.ndarray) -> jax.Array:
+    values = np.asarray(features, dtype=np.float32)
+    if values.ndim != 2:
+        raise ValueError("features must be a two-dimensional matrix")
+    if values.shape[0] == 0:
+        raise ValueError("features must contain at least one row")
+    if not np.all(np.isfinite(values)):
+        raise ValueError("features must contain only finite values")
+    return jnp.asarray(values)
+
+
 def input_gradients(
     parameters: tuple[dict[str, jax.Array], ...],
     features: np.ndarray,
 ) -> np.ndarray:
-    feature_array = jnp.asarray(features)
+    feature_array = _validated_feature_matrix(features)
     gradient_fn = jax.grad(lambda row: mlp_apply(parameters, row))
     return np.asarray(jax.vmap(gradient_fn)(feature_array))
 
