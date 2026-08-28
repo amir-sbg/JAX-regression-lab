@@ -19,6 +19,7 @@ The pipeline covers:
 - target-range binned residual diagnostics
 - split-conformal interval checks using validation residuals
 - input-gradient feature sensitivity for the trained JAX MLP
+- permutation feature importance for ridge and MLP predictions
 
 The data contains 442 samples, 10 numeric features, and a continuous disease-progression target. Predictions and error metrics are reported in the original target scale.
 
@@ -72,6 +73,7 @@ python -m jax_regression.pipeline \
   --learning-rate 0.01 \
   --momentum 0.90 \
   --gradient-clip 5.0 \
+  --permutation-repeats 5 \
   --patience 30
 ```
 
@@ -91,6 +93,8 @@ reports/
 ├── interval_calibration.png
 ├── metrics.json
 ├── feature_sensitivity.json
+├── permutation_importance.json
+├── permutation_importance.png
 ├── run_config.json
 ├── run_summary.json
 ├── residual_bins.json
@@ -100,7 +104,7 @@ reports/
 └── training_history.png
 ```
 
-`metrics.json` reports MSE, RMSE, MAE, and R² for both the ridge baseline and the JAX MLP. The residual report keeps per-sample errors and summary statistics in the original target scale, which makes it easier to see whether the neural model is biased high or low on the held-out set. The conformal interval files use validation residuals to estimate prediction bands and then report how well those bands cover the test set.
+`metrics.json` reports MSE, RMSE, MAE, and R² for both the ridge baseline and the JAX MLP. The residual report keeps per-sample errors and summary statistics in the original target scale, which makes it easier to see whether the neural model is biased high or low on the held-out set. The conformal interval files use validation residuals to estimate prediction bands and then report how well those bands cover the test set. The permutation-importance report complements local input gradients by measuring how much held-out MSE changes when each standardized feature is shuffled.
 
 ## Project structure
 

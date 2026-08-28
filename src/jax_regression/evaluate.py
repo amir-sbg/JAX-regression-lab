@@ -222,6 +222,25 @@ def save_interval_calibration_plot(
     plt.close(figure)
 
 
+def save_importance_plot(
+    rows: list[dict[str, float | int | str]],
+    path: Path,
+    title: str = "Permutation feature importance",
+) -> None:
+    top_rows = rows[: min(10, len(rows))]
+    labels = [str(row["feature"]) for row in top_rows]
+    values = [float(row["mean_mse_increase"]) for row in top_rows]
+    figure, axis = plt.subplots(figsize=(7, 4))
+    axis.barh(labels[::-1], values[::-1])
+    axis.set_xlabel("MSE increase after permutation")
+    axis.set_title(title)
+    axis.axvline(0.0, color="black", linewidth=1)
+    figure.tight_layout()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    figure.savefig(path, dpi=160)
+    plt.close(figure)
+
+
 def save_residual_plot(targets, predictions, path: Path) -> None:
     actual = np.asarray(targets, dtype=np.float64)
     residuals = np.asarray(predictions, dtype=np.float64) - actual

@@ -18,6 +18,7 @@ class ExperimentConfig:
     patience: int = 30
     gradient_clip: float | None = None
     ridge_alpha: float = 1.0
+    permutation_repeats: int = 5
     output_dir: Path = Path("artifacts")
     report_dir: Path = Path("reports")
 
@@ -40,6 +41,8 @@ class ExperimentConfig:
             raise ValueError("patience must be at least 1")
         if self.gradient_clip is not None and self.gradient_clip <= 0:
             raise ValueError("gradient_clip must be positive when provided")
+        if self.permutation_repeats < 1:
+            raise ValueError("permutation_repeats must be at least 1")
 
 
 def prepare_output_directories(config: ExperimentConfig) -> None:

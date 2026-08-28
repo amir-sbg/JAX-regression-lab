@@ -8,7 +8,7 @@ import jax.numpy as jnp
 from jax_regression.baseline import fit_ridge, predict_ridge
 from jax_regression.config import ExperimentConfig
 from jax_regression.data import load_regression_data
-from jax_regression.diagnostics import feature_sensitivity
+from jax_regression.diagnostics import feature_sensitivity, permutation_importance
 from jax_regression.evaluate import (
     binned_residual_summary,
     empirical_interval_summary,
@@ -255,6 +255,48 @@ def test_feature_sensitivity_rejects_bad_feature_matrix() -> None:
         feature_sensitivity(parameters, np.array([[np.nan]], dtype=np.float32), ("x",))
 
 
+def test_permutation_importance_ranks_predictive_feature() -> None:
+    features = np.array(
+        [
+            [0.0, 3.0],
+            [1.0, 2.0],
+            [2.0, 1.0],
+            [3.0, 0.0],
+            [4.0, 1.0],
+            [5.0, 2.0],
+        ],
+        dtype=np.float32,
+    )
+    targets = 2.0 * features[:, 0] + 0.1 * features[:, 1]
+
+    rows = permutation_importance(
+        features,
+        targets,
+        lambda batch: 2.0 * batch[:, 0] + 0.1 * batch[:, 1],
+        ("strong", "weak"),
+        repeats=4,
+        seed=3,
+    )
+
+    assert rows[0]["feature"] == "strong"
+    assert rows[0]["rank"] == 1
+    assert rows[0]["mean_mse_increase"] > rows[1]["mean_mse_increase"]
+    assert sum(row["normalized_importance"] for row in rows) == pytest.approx(1.0)
+
+
+def test_permutation_importance_rejects_bad_predictor_output() -> None:
+    features = np.ones((3, 2), dtype=np.float32)
+    targets = np.ones(3, dtype=np.float32)
+
+    with pytest.raises(ValueError, match="one prediction"):
+        permutation_importance(
+            features,
+            targets,
+            lambda batch: np.ones((len(batch), 1), dtype=np.float32),
+            ("x", "y"),
+        )
+
+
 def test_experiment_config_rejects_invalid_learning_rate() -> None:
     with pytest.raises(ValueError, match="learning_rate"):
         ExperimentConfig(learning_rate=0)
@@ -268,3 +310,8 @@ def test_experiment_config_rejects_invalid_gradient_clip() -> None:
 def test_experiment_config_rejects_invalid_split_sizes() -> None:
     with pytest.raises(ValueError, match="sum to less than 1"):
         ExperimentConfig(validation_size=0.5, test_size=0.5)
+
+
+def test_experiment_config_rejects_bad_permutation_repeats() -> None:
+    with pytest.raises(ValueError, match="permutation_repeats"):
+        ExperimentConfig(permutation_repeats=0)

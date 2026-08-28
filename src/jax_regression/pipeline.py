@@ -12,13 +12,14 @@ import pandas as pd
 from .baseline import fit_ridge, predict_ridge
 from .config import ExperimentConfig, prepare_output_directories
 from .data import load_regression_data
-from .diagnostics import feature_sensitivity
+from .diagnostics import feature_sensitivity, permutation_importance
 from .evaluate import (
     binned_residual_summary,
     empirical_interval_summary,
     interval_calibration_curve,
     regression_metrics,
     residual_summary,
+    save_importance_plot,
     save_interval_calibration_plot,
     save_json,
     save_residual_plot,
@@ -154,6 +155,34 @@ def run(config: ExperimentConfig) -> dict:
             data.feature_names,
         ),
     }
+    def ridge_predict_original(features):
+        return data.inverse_target(np.asarray(predict_ridge(ridge_parameters, features)))
+
+    def mlp_predict_original(features):
+        return data.inverse_target(np.asarray(predict_batch(training.parameters, features)))
+
+    permutation_report = {
+        "description": (
+            "Permutation importance on standardized test features. Scores are MSE increases "
+            "in the original target scale after one feature column is shuffled."
+        ),
+        "ridge": permutation_importance(
+            data.x_test,
+            actual_targets,
+            ridge_predict_original,
+            data.feature_names,
+            repeats=config.permutation_repeats,
+            seed=config.seed + 11,
+        ),
+        "mlp": permutation_importance(
+            data.x_test,
+            actual_targets,
+            mlp_predict_original,
+            data.feature_names,
+            repeats=config.permutation_repeats,
+            seed=config.seed + 17,
+        ),
+    }
 
     save_parameters(training.parameters, config.output_dir / "mlp_parameters.npz")
     np.save(config.output_dir / "ridge_parameters.npy", np.asarray(ridge_parameters))
@@ -168,6 +197,10 @@ def run(config: ExperimentConfig) -> dict:
         interval_calibration,
         config.report_dir / "interval_calibration.png",
     )
+    save_importance_plot(
+        permutation_report["mlp"],
+        config.report_dir / "permutation_importance.png",
+    )
     save_json(metrics, config.report_dir / "metrics.json")
     save_json(residual_report, config.report_dir / "residual_summary.json")
     save_json(residual_bins, config.report_dir / "residual_bins.json")
@@ -175,6 +208,7 @@ def run(config: ExperimentConfig) -> dict:
     save_json(conformal_interval_report, config.report_dir / "conformal_intervals.json")
     save_json(interval_calibration, config.report_dir / "interval_calibration.json")
     save_json(sensitivity_report, config.report_dir / "feature_sensitivity.json")
+    save_json(permutation_report, config.report_dir / "permutation_importance.json")
     save_json(
         {
             "backend": jax.default_backend(),
@@ -201,6 +235,7 @@ def run(config: ExperimentConfig) -> dict:
             "intervals": interval_report,
             "conformal_intervals": conformal_interval_report,
             "top_feature_sensitivity": sensitivity_report["features"][:5],
+            "top_permutation_importance": permutation_report["mlp"][:5],
         },
         config.report_dir / "run_summary.json",
     )
@@ -222,6 +257,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--patience", type=int, default=30)
     parser.add_argument("--gradient-clip", type=float)
     parser.add_argument("--ridge-alpha", type=float, default=1.0)
+    parser.add_argument("--permutation-repeats", type=int, default=5)
     parser.add_argument("--output-dir", type=Path, default=Path("artifacts"))
     parser.add_argument("--report-dir", type=Path, default=Path("reports"))
     return parser
