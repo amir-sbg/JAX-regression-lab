@@ -7,6 +7,7 @@ import jax.numpy as jnp
 import numpy as np
 
 from .model import mlp_apply
+from .train import mse_loss, tree_l2_norm
 
 
 def _validated_feature_matrix(features: np.ndarray) -> jax.Array:
@@ -111,6 +112,65 @@ def permutation_importance(
     for rank, row in enumerate(rows, start=1):
         row["rank"] = rank
     return rows
+
+
+def random_parameter_direction(parameters, key: jax.Array):
+    leaves, treedef = jax.tree_util.tree_flatten(parameters)
+    keys = jax.random.split(key, len(leaves))
+    direction_leaves = [
+        jax.random.normal(leaf_key, shape=leaf.shape, dtype=leaf.dtype)
+        for leaf_key, leaf in zip(keys, leaves)
+    ]
+    direction = jax.tree_util.tree_unflatten(treedef, direction_leaves)
+    norm = tree_l2_norm(direction)
+    return jax.tree_util.tree_map(lambda value: value / (norm + 1e-8), direction)
+
+
+def tree_dot(left, right) -> float:
+    left_leaves = jax.tree_util.tree_leaves(left)
+    right_leaves = jax.tree_util.tree_leaves(right)
+    if len(left_leaves) != len(right_leaves):
+        raise ValueError("trees must have the same structure")
+    total = sum(
+        (jnp.vdot(left_leaf, right_leaf) for left_leaf, right_leaf in zip(left_leaves, right_leaves)),
+        jnp.array(0.0),
+    )
+    return float(total)
+
+
+def directional_curvature(
+    parameters: tuple[dict[str, jax.Array], ...],
+    features: np.ndarray,
+    targets: np.ndarray,
+    key: jax.Array,
+    probes: int = 4,
+    l2_penalty: float = 0.0,
+) -> dict[str, float | int]:
+    if probes < 1:
+        raise ValueError("probes must be at least 1")
+    feature_array = _validated_feature_matrix(features)
+    target_array = np.asarray(targets, dtype=np.float32)
+    if target_array.ndim != 1 or len(target_array) != feature_array.shape[0]:
+        raise ValueError("targets must be a one-dimensional array with one value per row")
+    if not np.all(np.isfinite(target_array)):
+        raise ValueError("targets must contain only finite values")
+
+    target_array = jnp.asarray(target_array)
+    grad_fn = jax.grad(lambda params: mse_loss(params, feature_array, target_array, l2_penalty))
+    curvatures = []
+    for probe_key in jax.random.split(key, probes):
+        direction = random_parameter_direction(parameters, probe_key)
+        _, hessian_vector = jax.jvp(grad_fn, (parameters,), (direction,))
+        curvatures.append(tree_dot(direction, hessian_vector))
+
+    values = np.asarray(curvatures, dtype=np.float64)
+    return {
+        "probes": int(probes),
+        "mean_directional_curvature": float(values.mean()),
+        "std_directional_curvature": float(values.std()),
+        "min_directional_curvature": float(values.min()),
+        "max_directional_curvature": float(values.max()),
+    }
 
 
 def _checked_predictions(predictions: np.ndarray, expected_shape: tuple[int, ...]) -> np.ndarray:

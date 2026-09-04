@@ -8,7 +8,13 @@ import jax.numpy as jnp
 from jax_regression.baseline import fit_ridge, predict_ridge
 from jax_regression.config import ExperimentConfig
 from jax_regression.data import load_regression_data
-from jax_regression.diagnostics import feature_sensitivity, permutation_importance
+from jax_regression.diagnostics import (
+    directional_curvature,
+    feature_sensitivity,
+    permutation_importance,
+    random_parameter_direction,
+    tree_dot,
+)
 from jax_regression.evaluate import (
     binned_residual_summary,
     empirical_interval_summary,
@@ -320,6 +326,31 @@ def test_permutation_importance_rejects_bad_predictor_output() -> None:
         )
 
 
+def test_random_parameter_direction_is_unit_norm() -> None:
+    parameters = init_mlp(2, (4,), jax.random.PRNGKey(10))
+    direction = random_parameter_direction(parameters, jax.random.PRNGKey(11))
+
+    assert float(tree_l2_norm(direction)) == pytest.approx(1.0)
+    assert tree_dot(direction, direction) == pytest.approx(1.0)
+
+
+def test_directional_curvature_reports_finite_values() -> None:
+    parameters = init_mlp(2, (4,), jax.random.PRNGKey(12))
+    features = np.ones((5, 2), dtype=np.float32)
+    targets = np.linspace(-1, 1, 5, dtype=np.float32)
+
+    report = directional_curvature(
+        parameters,
+        features,
+        targets,
+        jax.random.PRNGKey(13),
+        probes=3,
+    )
+
+    assert report["probes"] == 3
+    assert np.isfinite(report["mean_directional_curvature"])
+
+
 def test_experiment_config_rejects_invalid_learning_rate() -> None:
     with pytest.raises(ValueError, match="learning_rate"):
         ExperimentConfig(learning_rate=0)
@@ -345,3 +376,8 @@ def test_experiment_config_rejects_invalid_split_sizes() -> None:
 def test_experiment_config_rejects_bad_permutation_repeats() -> None:
     with pytest.raises(ValueError, match="permutation_repeats"):
         ExperimentConfig(permutation_repeats=0)
+
+
+def test_experiment_config_rejects_bad_curvature_probe_count() -> None:
+    with pytest.raises(ValueError, match="curvature_probes"):
+        ExperimentConfig(curvature_probes=0)

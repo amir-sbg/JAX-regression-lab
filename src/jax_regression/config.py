@@ -21,6 +21,7 @@ class ExperimentConfig:
     final_learning_rate_ratio: float = 1.0
     ridge_alpha: float = 1.0
     permutation_repeats: int = 5
+    curvature_probes: int = 4
     output_dir: Path = Path("artifacts")
     report_dir: Path = Path("reports")
 
@@ -49,6 +50,8 @@ class ExperimentConfig:
             raise ValueError("final_learning_rate_ratio must be in (0, 1]")
         if self.permutation_repeats < 1:
             raise ValueError("permutation_repeats must be at least 1")
+        if self.curvature_probes < 1:
+            raise ValueError("curvature_probes must be at least 1")
 
 
 def prepare_output_directories(config: ExperimentConfig) -> None:

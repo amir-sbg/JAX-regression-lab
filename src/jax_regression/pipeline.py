@@ -12,7 +12,7 @@ import pandas as pd
 from .baseline import fit_ridge, predict_ridge
 from .config import ExperimentConfig, prepare_output_directories
 from .data import load_regression_data
-from .diagnostics import feature_sensitivity, permutation_importance
+from .diagnostics import directional_curvature, feature_sensitivity, permutation_importance
 from .evaluate import (
     binned_residual_summary,
     empirical_interval_summary,
@@ -185,6 +185,20 @@ def run(config: ExperimentConfig) -> dict:
             seed=config.seed + 17,
         ),
     }
+    curvature_report = {
+        "description": (
+            "Hessian-vector directional curvature of the trained MLP loss on validation data. "
+            "The values are computed in the scaled target space and summarize local loss sharpness."
+        ),
+        "mlp": directional_curvature(
+            training.parameters,
+            data.x_validation,
+            data.y_validation,
+            jax.random.PRNGKey(config.seed + 23),
+            probes=config.curvature_probes,
+            l2_penalty=config.l2_penalty,
+        ),
+    }
 
     save_parameters(training.parameters, config.output_dir / "mlp_parameters.npz")
     np.save(config.output_dir / "ridge_parameters.npy", np.asarray(ridge_parameters))
@@ -211,6 +225,7 @@ def run(config: ExperimentConfig) -> dict:
     save_json(interval_calibration, config.report_dir / "interval_calibration.json")
     save_json(sensitivity_report, config.report_dir / "feature_sensitivity.json")
     save_json(permutation_report, config.report_dir / "permutation_importance.json")
+    save_json(curvature_report, config.report_dir / "curvature.json")
     save_json(
         {
             "backend": jax.default_backend(),
@@ -238,6 +253,7 @@ def run(config: ExperimentConfig) -> dict:
             "conformal_intervals": conformal_interval_report,
             "top_feature_sensitivity": sensitivity_report["features"][:5],
             "top_permutation_importance": permutation_report["mlp"][:5],
+            "curvature": curvature_report["mlp"],
         },
         config.report_dir / "run_summary.json",
     )
@@ -262,6 +278,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--final-learning-rate-ratio", type=float, default=1.0)
     parser.add_argument("--ridge-alpha", type=float, default=1.0)
     parser.add_argument("--permutation-repeats", type=int, default=5)
+    parser.add_argument("--curvature-probes", type=int, default=4)
     parser.add_argument("--output-dir", type=Path, default=Path("artifacts"))
     parser.add_argument("--report-dir", type=Path, default=Path("reports"))
     return parser
