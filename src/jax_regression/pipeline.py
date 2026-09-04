@@ -77,6 +77,8 @@ def run(config: ExperimentConfig) -> dict:
             l2_penalty=config.l2_penalty,
             patience=config.patience,
             gradient_clip=config.gradient_clip,
+            warmup_epochs=config.warmup_epochs,
+            final_learning_rate_ratio=config.final_learning_rate_ratio,
         ),
         key=training_key,
     )
@@ -256,6 +258,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--l2-penalty", type=float, default=1e-4)
     parser.add_argument("--patience", type=int, default=30)
     parser.add_argument("--gradient-clip", type=float)
+    parser.add_argument("--warmup-epochs", type=int, default=0)
+    parser.add_argument("--final-learning-rate-ratio", type=float, default=1.0)
     parser.add_argument("--ridge-alpha", type=float, default=1.0)
     parser.add_argument("--permutation-repeats", type=int, default=5)
     parser.add_argument("--output-dir", type=Path, default=Path("artifacts"))

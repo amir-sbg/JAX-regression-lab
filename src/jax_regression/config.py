@@ -17,6 +17,8 @@ class ExperimentConfig:
     l2_penalty: float = 1e-4
     patience: int = 30
     gradient_clip: float | None = None
+    warmup_epochs: int = 0
+    final_learning_rate_ratio: float = 1.0
     ridge_alpha: float = 1.0
     permutation_repeats: int = 5
     output_dir: Path = Path("artifacts")
@@ -41,6 +43,10 @@ class ExperimentConfig:
             raise ValueError("patience must be at least 1")
         if self.gradient_clip is not None and self.gradient_clip <= 0:
             raise ValueError("gradient_clip must be positive when provided")
+        if self.warmup_epochs < 0 or self.warmup_epochs >= self.epochs:
+            raise ValueError("warmup_epochs must be non-negative and smaller than epochs")
+        if not 0.0 < self.final_learning_rate_ratio <= 1.0:
+            raise ValueError("final_learning_rate_ratio must be in (0, 1]")
         if self.permutation_repeats < 1:
             raise ValueError("permutation_repeats must be at least 1")
 

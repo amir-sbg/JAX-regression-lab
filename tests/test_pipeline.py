@@ -24,7 +24,13 @@ from jax_regression.model import (
     predict_batch,
     save_parameters,
 )
-from jax_regression.train import TrainingConfig, clip_gradients, train_model, tree_l2_norm
+from jax_regression.train import (
+    TrainingConfig,
+    clip_gradients,
+    learning_rate_for_epoch,
+    train_model,
+    tree_l2_norm,
+)
 
 
 def test_data_split_and_scaling_are_deterministic() -> None:
@@ -104,6 +110,23 @@ def test_training_improves_a_small_regression_problem() -> None:
         result.history[result.best_epoch - 1]["validation_loss"]
     )
     assert "gradient_norm" in result.history[-1]
+    assert "learning_rate" in result.history[-1]
+
+
+def test_learning_rate_schedule_warms_up_and_decays() -> None:
+    config = TrainingConfig(
+        epochs=6,
+        learning_rate=0.1,
+        warmup_epochs=2,
+        final_learning_rate_ratio=0.1,
+    )
+
+    values = [learning_rate_for_epoch(epoch, config) for epoch in range(1, 7)]
+
+    assert values[0] == pytest.approx(0.05)
+    assert values[1] == pytest.approx(0.10)
+    assert values[-1] == pytest.approx(0.01)
+    assert values[2] > values[3] > values[4] > values[5]
 
 
 def test_gradient_clipping_rescales_large_updates() -> None:
@@ -305,6 +328,13 @@ def test_experiment_config_rejects_invalid_learning_rate() -> None:
 def test_experiment_config_rejects_invalid_gradient_clip() -> None:
     with pytest.raises(ValueError, match="gradient_clip"):
         ExperimentConfig(gradient_clip=0)
+
+
+def test_experiment_config_rejects_bad_schedule() -> None:
+    with pytest.raises(ValueError, match="warmup_epochs"):
+        ExperimentConfig(epochs=4, warmup_epochs=4)
+    with pytest.raises(ValueError, match="final_learning_rate_ratio"):
+        ExperimentConfig(final_learning_rate_ratio=1.5)
 
 
 def test_experiment_config_rejects_invalid_split_sizes() -> None:

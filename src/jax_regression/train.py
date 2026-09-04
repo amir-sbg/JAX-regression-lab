@@ -18,6 +18,8 @@ class TrainingConfig:
     l2_penalty: float = 1e-4
     patience: int = 30
     gradient_clip: float | None = None
+    warmup_epochs: int = 0
+    final_learning_rate_ratio: float = 1.0
 
 
 @dataclass(frozen=True)
@@ -49,6 +51,20 @@ def clip_gradients(gradients, max_norm: float):
     scale = jnp.where(max_norm > 0, safe_scale, 1.0)
     clipped = jax.tree_util.tree_map(lambda gradient: gradient * scale, gradients)
     return clipped, norm
+
+
+def learning_rate_for_epoch(epoch: int, config: TrainingConfig) -> float:
+    if epoch < 1:
+        raise ValueError("epoch is one-indexed and must be positive")
+    if config.warmup_epochs > 0 and epoch <= config.warmup_epochs:
+        return config.learning_rate * epoch / config.warmup_epochs
+
+    decay_epochs = max(1, config.epochs - config.warmup_epochs)
+    progress = (epoch - config.warmup_epochs - 1) / max(1, decay_epochs - 1)
+    progress = min(1.0, max(0.0, progress))
+    cosine = 0.5 * (1.0 + np.cos(np.pi * progress))
+    ratio = config.final_learning_rate_ratio + (1.0 - config.final_learning_rate_ratio) * cosine
+    return float(config.learning_rate * ratio)
 
 
 @jax.jit
@@ -101,6 +117,10 @@ def train_model(
         raise ValueError("l2_penalty must not be negative and patience must be positive")
     if config.gradient_clip is not None and config.gradient_clip <= 0:
         raise ValueError("gradient_clip must be positive when provided")
+    if config.warmup_epochs < 0 or config.warmup_epochs >= config.epochs:
+        raise ValueError("warmup_epochs must be non-negative and smaller than epochs")
+    if not 0.0 < config.final_learning_rate_ratio <= 1.0:
+        raise ValueError("final_learning_rate_ratio must be in (0, 1]")
 
     velocity = jax.tree_util.tree_map(jnp.zeros_like, parameters)
     best_parameters = parameters
@@ -110,6 +130,7 @@ def train_model(
     history: list[dict[str, float]] = []
 
     for epoch in range(1, config.epochs + 1):
+        epoch_learning_rate = learning_rate_for_epoch(epoch, config)
         key, permutation_key = jax.random.split(key)
         permutation = np.asarray(
             jax.random.permutation(permutation_key, len(features))
@@ -122,7 +143,7 @@ def train_model(
                 velocity,
                 features[indices],
                 targets[indices],
-                config.learning_rate,
+                epoch_learning_rate,
                 config.momentum,
                 config.l2_penalty,
                 config.gradient_clip or 0.0,
@@ -139,6 +160,7 @@ def train_model(
                 "train_loss": train_loss,
                 "validation_loss": validation_loss,
                 "gradient_norm": float(np.mean(epoch_gradient_norms)),
+                "learning_rate": epoch_learning_rate,
             }
         )
 
