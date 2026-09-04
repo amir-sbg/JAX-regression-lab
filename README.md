@@ -12,6 +12,7 @@ The pipeline covers:
 - a fully connected MLP represented as a JAX parameter PyTree
 - automatic differentiation with `jax.value_and_grad`
 - JIT-compiled momentum updates with `jax.jit`
+- optional warmup and cosine learning-rate decay
 - optional global-norm gradient clipping for unstable small-batch runs
 - batched prediction with `jax.vmap`
 - validation-based early stopping and a held-out test report
@@ -20,6 +21,7 @@ The pipeline covers:
 - split-conformal interval checks using validation residuals
 - input-gradient feature sensitivity for the trained JAX MLP
 - permutation feature importance for ridge and MLP predictions
+- Hessian-vector directional curvature checks around the trained MLP
 
 The data contains 442 samples, 10 numeric features, and a continuous disease-progression target. Predictions and error metrics are reported in the original target scale.
 
@@ -72,8 +74,11 @@ python -m jax_regression.pipeline \
   --hidden-dims 64 32 \
   --learning-rate 0.01 \
   --momentum 0.90 \
+  --warmup-epochs 10 \
+  --final-learning-rate-ratio 0.2 \
   --gradient-clip 5.0 \
   --permutation-repeats 5 \
+  --curvature-probes 4 \
   --patience 30
 ```
 
@@ -89,6 +94,7 @@ artifacts/
 
 reports/
 ├── conformal_intervals.json
+├── curvature.json
 ├── interval_calibration.json
 ├── interval_calibration.png
 ├── metrics.json
@@ -104,7 +110,7 @@ reports/
 └── training_history.png
 ```
 
-`metrics.json` reports MSE, RMSE, MAE, and R² for both the ridge baseline and the JAX MLP. The residual report keeps per-sample errors and summary statistics in the original target scale, which makes it easier to see whether the neural model is biased high or low on the held-out set. The conformal interval files use validation residuals to estimate prediction bands and then report how well those bands cover the test set. The permutation-importance report complements local input gradients by measuring how much held-out MSE changes when each standardized feature is shuffled.
+`metrics.json` reports MSE, RMSE, MAE, and R² for both the ridge baseline and the JAX MLP. The residual report keeps per-sample errors and summary statistics in the original target scale, which makes it easier to see whether the neural model is biased high or low on the held-out set. The conformal interval files use validation residuals to estimate prediction bands and then report how well those bands cover the test set. The permutation-importance report complements local input gradients by measuring how much held-out MSE changes when each standardized feature is shuffled. The curvature report uses JAX Hessian-vector products to give a small local sharpness check around the trained parameters.
 
 ## Project structure
 
