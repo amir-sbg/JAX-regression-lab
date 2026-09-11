@@ -17,6 +17,7 @@ The pipeline covers:
 - MSE or Huber objective for checking robustness to larger residuals
 - batched prediction with `jax.vmap`
 - validation-based early stopping and a held-out test report
+- convergence reporting for loss reduction, best epoch, gradient norm, and final LR
 - residual diagnostics for checking bias and error spread
 - target-range binned residual diagnostics
 - split-conformal interval checks using validation residuals
@@ -112,6 +113,7 @@ reports/
 ├── residual_summary.json
 ├── residuals.csv
 ├── residuals.png
+├── training_convergence.json
 └── training_history.png
 ```
 

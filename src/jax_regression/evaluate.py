@@ -52,6 +52,39 @@ def residual_summary(targets, predictions) -> dict[str, float]:
     }
 
 
+def training_convergence_summary(history: list[dict[str, float]]) -> dict[str, float | int]:
+    if not history:
+        raise ValueError("history must contain at least one epoch")
+    required = {"epoch", "train_loss", "validation_loss", "gradient_norm", "learning_rate"}
+    missing = sorted(required - set(history[0]))
+    if missing:
+        raise ValueError(f"history rows are missing fields: {missing}")
+
+    train_loss = np.asarray([row["train_loss"] for row in history], dtype=np.float64)
+    validation_loss = np.asarray([row["validation_loss"] for row in history], dtype=np.float64)
+    if not np.all(np.isfinite(train_loss)) or not np.all(np.isfinite(validation_loss)):
+        raise ValueError("loss history must contain only finite values")
+
+    best_index = int(np.argmin(validation_loss))
+    initial_train = max(float(train_loss[0]), 1e-12)
+    initial_validation = max(float(validation_loss[0]), 1e-12)
+    return {
+        "epochs_ran": int(len(history)),
+        "best_epoch": int(history[best_index]["epoch"]),
+        "initial_train_loss": float(train_loss[0]),
+        "final_train_loss": float(train_loss[-1]),
+        "best_validation_loss": float(validation_loss[best_index]),
+        "final_validation_loss": float(validation_loss[-1]),
+        "train_loss_reduction": float((train_loss[0] - train_loss[-1]) / initial_train),
+        "validation_loss_reduction": float(
+            (validation_loss[0] - validation_loss[best_index]) / initial_validation
+        ),
+        "best_generalization_gap": float(validation_loss[best_index] - train_loss[best_index]),
+        "final_gradient_norm": float(history[-1]["gradient_norm"]),
+        "final_learning_rate": float(history[-1]["learning_rate"]),
+    }
+
+
 def empirical_interval_summary(
     targets,
     predictions,

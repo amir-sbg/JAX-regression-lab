@@ -22,6 +22,7 @@ from jax_regression.evaluate import (
     regression_metrics,
     residual_summary,
     split_conformal_interval_summary,
+    training_convergence_summary,
 )
 from jax_regression.model import (
     init_mlp,
@@ -197,6 +198,44 @@ def test_residual_summary_rejects_bad_inputs() -> None:
         residual_summary(np.array([1.0]), np.array([1.0, 2.0]))
     with pytest.raises(ValueError, match="must not be empty"):
         residual_summary(np.array([]), np.array([]))
+
+
+def test_training_convergence_summary_tracks_best_epoch() -> None:
+    summary = training_convergence_summary(
+        [
+            {
+                "epoch": 1.0,
+                "train_loss": 4.0,
+                "validation_loss": 5.0,
+                "gradient_norm": 3.0,
+                "learning_rate": 0.1,
+            },
+            {
+                "epoch": 2.0,
+                "train_loss": 2.0,
+                "validation_loss": 2.5,
+                "gradient_norm": 1.0,
+                "learning_rate": 0.05,
+            },
+            {
+                "epoch": 3.0,
+                "train_loss": 1.5,
+                "validation_loss": 2.8,
+                "gradient_norm": 0.5,
+                "learning_rate": 0.01,
+            },
+        ]
+    )
+
+    assert summary["epochs_ran"] == 3
+    assert summary["best_epoch"] == 2
+    assert summary["train_loss_reduction"] == pytest.approx(0.625)
+    assert summary["final_gradient_norm"] == pytest.approx(0.5)
+
+
+def test_training_convergence_summary_rejects_empty_history() -> None:
+    with pytest.raises(ValueError, match="at least one epoch"):
+        training_convergence_summary([])
 
 
 def test_binned_residual_summary_groups_target_ranges() -> None:

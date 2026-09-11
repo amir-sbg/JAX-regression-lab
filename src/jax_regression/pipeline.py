@@ -25,6 +25,7 @@ from .evaluate import (
     save_residual_plot,
     save_training_plot,
     split_conformal_interval_summary,
+    training_convergence_summary,
 )
 from .model import init_mlp, parameter_count, predict_batch, save_parameters
 from .train import TrainingConfig, train_model
@@ -201,6 +202,7 @@ def run(config: ExperimentConfig) -> dict:
             l2_penalty=config.l2_penalty,
         ),
     }
+    convergence_report = training_convergence_summary(training.history)
 
     save_parameters(training.parameters, config.output_dir / "mlp_parameters.npz")
     np.save(config.output_dir / "ridge_parameters.npy", np.asarray(ridge_parameters))
@@ -228,6 +230,7 @@ def run(config: ExperimentConfig) -> dict:
     save_json(sensitivity_report, config.report_dir / "feature_sensitivity.json")
     save_json(permutation_report, config.report_dir / "permutation_importance.json")
     save_json(curvature_report, config.report_dir / "curvature.json")
+    save_json(convergence_report, config.report_dir / "training_convergence.json")
     save_json(
         {
             "backend": jax.default_backend(),
@@ -258,6 +261,7 @@ def run(config: ExperimentConfig) -> dict:
             "top_feature_sensitivity": sensitivity_report["features"][:5],
             "top_permutation_importance": permutation_report["mlp"][:5],
             "curvature": curvature_report["mlp"],
+            "training_convergence": convergence_report,
         },
         config.report_dir / "run_summary.json",
     )
