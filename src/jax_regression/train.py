@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import partial
 
 import jax
 import jax.numpy as jnp
@@ -20,6 +21,8 @@ class TrainingConfig:
     gradient_clip: float | None = None
     warmup_epochs: int = 0
     final_learning_rate_ratio: float = 1.0
+    loss: str = "mse"
+    huber_delta: float = 1.0
 
 
 @dataclass(frozen=True)
@@ -30,11 +33,31 @@ class TrainingResult:
     best_validation_loss: float
 
 
-def mse_loss(parameters, features, targets, l2_penalty: float = 0.0):
+def regression_loss(
+    parameters,
+    features,
+    targets,
+    l2_penalty: float = 0.0,
+    loss: str = "mse",
+    huber_delta: float = 1.0,
+):
     predictions = mlp_apply(parameters, features)
     residuals = predictions - targets
     weight_penalty = sum(jnp.sum(layer["weights"] ** 2) for layer in parameters)
-    return jnp.mean(residuals**2) + l2_penalty * weight_penalty
+    if loss == "mse":
+        data_loss = jnp.mean(residuals**2)
+    elif loss == "huber":
+        abs_residuals = jnp.abs(residuals)
+        quadratic = jnp.minimum(abs_residuals, huber_delta)
+        linear = abs_residuals - quadratic
+        data_loss = jnp.mean(0.5 * quadratic**2 + huber_delta * linear)
+    else:
+        raise ValueError("loss must be either 'mse' or 'huber'")
+    return data_loss + l2_penalty * weight_penalty
+
+
+def mse_loss(parameters, features, targets, l2_penalty: float = 0.0):
+    return regression_loss(parameters, features, targets, l2_penalty=l2_penalty)
 
 
 def tree_l2_norm(values) -> jax.Array:
@@ -67,7 +90,7 @@ def learning_rate_for_epoch(epoch: int, config: TrainingConfig) -> float:
     return float(config.learning_rate * ratio)
 
 
-@jax.jit
+@partial(jax.jit, static_argnames=("loss",))
 def gradient_step(
     parameters,
     velocity,
@@ -77,12 +100,16 @@ def gradient_step(
     momentum: float,
     l2_penalty: float,
     gradient_clip: float,
+    loss: str,
+    huber_delta: float,
 ):
-    loss, gradients = jax.value_and_grad(mse_loss)(
+    loss_value, gradients = jax.value_and_grad(regression_loss)(
         parameters,
         features,
         targets,
         l2_penalty,
+        loss,
+        huber_delta,
     )
     gradients, gradient_norm = clip_gradients(gradients, gradient_clip)
     velocity = jax.tree_util.tree_map(
@@ -95,7 +122,7 @@ def gradient_step(
         parameters,
         velocity,
     )
-    return parameters, velocity, loss, gradient_norm
+    return parameters, velocity, loss_value, gradient_norm
 
 
 def train_model(
@@ -121,6 +148,10 @@ def train_model(
         raise ValueError("warmup_epochs must be non-negative and smaller than epochs")
     if not 0.0 < config.final_learning_rate_ratio <= 1.0:
         raise ValueError("final_learning_rate_ratio must be in (0, 1]")
+    if config.loss not in {"mse", "huber"}:
+        raise ValueError("loss must be either 'mse' or 'huber'")
+    if config.huber_delta <= 0:
+        raise ValueError("huber_delta must be greater than 0")
 
     velocity = jax.tree_util.tree_map(jnp.zeros_like, parameters)
     best_parameters = parameters
@@ -147,12 +178,30 @@ def train_model(
                 config.momentum,
                 config.l2_penalty,
                 config.gradient_clip or 0.0,
+                config.loss,
+                config.huber_delta,
             )
             epoch_gradient_norms.append(float(gradient_norm))
 
-        train_loss = float(mse_loss(parameters, features, targets))
+        train_loss = float(
+            regression_loss(
+                parameters,
+                features,
+                targets,
+                l2_penalty=config.l2_penalty,
+                loss=config.loss,
+                huber_delta=config.huber_delta,
+            )
+        )
         validation_loss = float(
-            mse_loss(parameters, validation_features, validation_targets)
+            regression_loss(
+                parameters,
+                validation_features,
+                validation_targets,
+                l2_penalty=config.l2_penalty,
+                loss=config.loss,
+                huber_delta=config.huber_delta,
+            )
         )
         history.append(
             {

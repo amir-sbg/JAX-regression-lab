@@ -34,6 +34,7 @@ from jax_regression.train import (
     TrainingConfig,
     clip_gradients,
     learning_rate_for_epoch,
+    regression_loss,
     train_model,
     tree_l2_norm,
 )
@@ -117,6 +118,23 @@ def test_training_improves_a_small_regression_problem() -> None:
     )
     assert "gradient_norm" in result.history[-1]
     assert "learning_rate" in result.history[-1]
+
+
+def test_huber_loss_downweights_large_residuals() -> None:
+    parameters = (
+        {
+            "weights": jnp.array([[0.0]], dtype=jnp.float32),
+            "bias": jnp.zeros((1,), dtype=jnp.float32),
+        },
+    )
+    features = np.ones((2, 1), dtype=np.float32)
+    targets = np.array([0.5, 5.0], dtype=np.float32)
+
+    mse = regression_loss(parameters, features, targets, loss="mse")
+    huber = regression_loss(parameters, features, targets, loss="huber", huber_delta=1.0)
+
+    assert float(huber) < float(mse)
+    assert float(huber) == pytest.approx(2.3125)
 
 
 def test_learning_rate_schedule_warms_up_and_decays() -> None:
@@ -366,6 +384,13 @@ def test_experiment_config_rejects_bad_schedule() -> None:
         ExperimentConfig(epochs=4, warmup_epochs=4)
     with pytest.raises(ValueError, match="final_learning_rate_ratio"):
         ExperimentConfig(final_learning_rate_ratio=1.5)
+
+
+def test_experiment_config_rejects_bad_loss_settings() -> None:
+    with pytest.raises(ValueError, match="loss"):
+        ExperimentConfig(loss="mae")
+    with pytest.raises(ValueError, match="huber_delta"):
+        ExperimentConfig(loss="huber", huber_delta=0)
 
 
 def test_experiment_config_rejects_invalid_split_sizes() -> None:

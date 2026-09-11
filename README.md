@@ -14,6 +14,7 @@ The pipeline covers:
 - JIT-compiled momentum updates with `jax.jit`
 - optional warmup and cosine learning-rate decay
 - optional global-norm gradient clipping for unstable small-batch runs
+- MSE or Huber objective for checking robustness to larger residuals
 - batched prediction with `jax.vmap`
 - validation-based early stopping and a held-out test report
 - residual diagnostics for checking bias and error spread
@@ -35,7 +36,9 @@ min_w  ||Xw - y||² + α||w||²
 
 using the normal-equation system with an unregularized bias term. The neural model uses two `tanh` hidden layers and minimizes mean squared error with an L2 penalty on the weight matrices.
 
-The training update is momentum gradient descent:
+The MLP can optimize either MSE or a Huber loss. MSE keeps the usual squared-error
+geometry, while Huber is useful when a few high-residual examples would otherwise dominate
+the early gradients. The training update is momentum gradient descent:
 
 ```text
 vₜ = μvₜ₋₁ + ∇L(θₜ₋₁)
@@ -77,6 +80,8 @@ python -m jax_regression.pipeline \
   --warmup-epochs 10 \
   --final-learning-rate-ratio 0.2 \
   --gradient-clip 5.0 \
+  --loss huber \
+  --huber-delta 1.0 \
   --permutation-repeats 5 \
   --curvature-probes 4 \
   --patience 30

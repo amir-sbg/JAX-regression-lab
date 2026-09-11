@@ -19,6 +19,8 @@ class ExperimentConfig:
     gradient_clip: float | None = None
     warmup_epochs: int = 0
     final_learning_rate_ratio: float = 1.0
+    loss: str = "mse"
+    huber_delta: float = 1.0
     ridge_alpha: float = 1.0
     permutation_repeats: int = 5
     curvature_probes: int = 4
@@ -48,6 +50,10 @@ class ExperimentConfig:
             raise ValueError("warmup_epochs must be non-negative and smaller than epochs")
         if not 0.0 < self.final_learning_rate_ratio <= 1.0:
             raise ValueError("final_learning_rate_ratio must be in (0, 1]")
+        if self.loss not in {"mse", "huber"}:
+            raise ValueError("loss must be either 'mse' or 'huber'")
+        if self.huber_delta <= 0:
+            raise ValueError("huber_delta must be greater than 0")
         if self.permutation_repeats < 1:
             raise ValueError("permutation_repeats must be at least 1")
         if self.curvature_probes < 1:

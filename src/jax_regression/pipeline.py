@@ -79,6 +79,8 @@ def run(config: ExperimentConfig) -> dict:
             gradient_clip=config.gradient_clip,
             warmup_epochs=config.warmup_epochs,
             final_learning_rate_ratio=config.final_learning_rate_ratio,
+            loss=config.loss,
+            huber_delta=config.huber_delta,
         ),
         key=training_key,
     )
@@ -245,6 +247,8 @@ def run(config: ExperimentConfig) -> dict:
                 "parameter_count": parameter_count(training.parameters),
                 "best_epoch": training.best_epoch,
                 "best_validation_loss": training.best_validation_loss,
+                "loss": config.loss,
+                "huber_delta": config.huber_delta,
             },
             "metrics": metrics,
             "residuals": residual_report,
@@ -276,6 +280,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--gradient-clip", type=float)
     parser.add_argument("--warmup-epochs", type=int, default=0)
     parser.add_argument("--final-learning-rate-ratio", type=float, default=1.0)
+    parser.add_argument("--loss", choices=["mse", "huber"], default="mse")
+    parser.add_argument("--huber-delta", type=float, default=1.0)
     parser.add_argument("--ridge-alpha", type=float, default=1.0)
     parser.add_argument("--permutation-repeats", type=int, default=5)
     parser.add_argument("--curvature-probes", type=int, default=4)
