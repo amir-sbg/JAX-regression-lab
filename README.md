@@ -17,6 +17,7 @@ The pipeline covers:
 - MSE or Huber objective for checking robustness to larger residuals
 - batched prediction with `jax.vmap`
 - validation-based early stopping and a held-out test report
+- ridge-vs-MLP model comparison by the selected test metric
 - convergence reporting for loss reduction, best epoch, gradient norm, and final LR
 - residual diagnostics for checking bias and error spread
 - target-range binned residual diagnostics
@@ -104,6 +105,7 @@ reports/
 ├── interval_calibration.json
 ├── interval_calibration.png
 ├── metrics.json
+├── model_comparison.json
 ├── feature_sensitivity.json
 ├── permutation_importance.json
 ├── permutation_importance.png
@@ -117,7 +119,7 @@ reports/
 └── training_history.png
 ```
 
-`metrics.json` reports MSE, RMSE, MAE, and R² for both the ridge baseline and the JAX MLP. The residual report keeps per-sample errors and summary statistics in the original target scale, which makes it easier to see whether the neural model is biased high or low on the held-out set. The conformal interval files use validation residuals to estimate prediction bands and then report how well those bands cover the test set. The permutation-importance report complements local input gradients by measuring how much held-out MSE changes when each standardized feature is shuffled. The curvature report uses JAX Hessian-vector products to give a small local sharpness check around the trained parameters.
+`metrics.json` reports MSE, RMSE, MAE, and R² for both the ridge baseline and the JAX MLP. `model_comparison.json` records which model wins on test RMSE and the MLP delta from the ridge baseline. The residual report keeps per-sample errors and summary statistics in the original target scale, which makes it easier to see whether the neural model is biased high or low on the held-out set. The conformal interval files use validation residuals to estimate prediction bands and then report how well those bands cover the test set. The permutation-importance report complements local input gradients by measuring how much held-out MSE changes when each standardized feature is shuffled. The curvature report uses JAX Hessian-vector products to give a small local sharpness check around the trained parameters.
 
 ## Project structure
 

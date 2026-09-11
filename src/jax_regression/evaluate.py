@@ -39,6 +39,38 @@ def regression_metrics(targets, predictions) -> dict[str, float]:
     }
 
 
+def model_comparison_summary(
+    metrics: dict[str, dict[str, float]],
+    primary_metric: str = "rmse",
+) -> dict[str, object]:
+    if not metrics:
+        raise ValueError("metrics must include at least one model")
+
+    rows = []
+    for model_name, model_metrics in metrics.items():
+        if primary_metric not in model_metrics:
+            raise ValueError(f"{model_name} metrics are missing {primary_metric}")
+        value = float(model_metrics[primary_metric])
+        if not np.isfinite(value):
+            raise ValueError("primary metric values must be finite")
+        rows.append({"model": model_name, primary_metric: value})
+
+    rows.sort(key=lambda row: float(row[primary_metric]))
+    summary: dict[str, object] = {
+        "primary_metric": primary_metric,
+        "winner": rows[0]["model"],
+        "ranked": rows,
+    }
+    if {"ridge", "mlp"}.issubset(metrics):
+        ridge_value = float(metrics["ridge"][primary_metric])
+        mlp_value = float(metrics["mlp"][primary_metric])
+        summary["mlp_delta_vs_ridge"] = mlp_value - ridge_value
+        summary["mlp_relative_change_vs_ridge"] = (
+            (mlp_value - ridge_value) / max(abs(ridge_value), 1e-12)
+        )
+    return summary
+
+
 def residual_summary(targets, predictions) -> dict[str, float]:
     actual, estimated = _matching_arrays(targets, predictions)
     residuals = estimated - actual

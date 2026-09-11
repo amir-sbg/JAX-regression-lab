@@ -19,6 +19,7 @@ from jax_regression.evaluate import (
     binned_residual_summary,
     empirical_interval_summary,
     interval_calibration_curve,
+    model_comparison_summary,
     regression_metrics,
     residual_summary,
     split_conformal_interval_summary,
@@ -184,6 +185,24 @@ def test_metrics_handle_constant_targets() -> None:
 
     assert perfect["r2"] == 1.0
     assert imperfect["r2"] == 0.0
+
+
+def test_model_comparison_summary_ranks_by_primary_metric() -> None:
+    summary = model_comparison_summary(
+        {
+            "ridge": {"rmse": 4.0, "mae": 3.0},
+            "mlp": {"rmse": 3.0, "mae": 2.5},
+        }
+    )
+
+    assert summary["winner"] == "mlp"
+    assert summary["mlp_delta_vs_ridge"] == pytest.approx(-1.0)
+    assert summary["mlp_relative_change_vs_ridge"] == pytest.approx(-0.25)
+
+
+def test_model_comparison_summary_requires_primary_metric() -> None:
+    with pytest.raises(ValueError, match="missing rmse"):
+        model_comparison_summary({"ridge": {"mae": 1.0}})
 
 
 def test_residual_summary_reports_error_shape() -> None:

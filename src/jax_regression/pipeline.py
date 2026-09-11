@@ -17,6 +17,7 @@ from .evaluate import (
     binned_residual_summary,
     empirical_interval_summary,
     interval_calibration_curve,
+    model_comparison_summary,
     regression_metrics,
     residual_summary,
     save_importance_plot,
@@ -100,6 +101,7 @@ def run(config: ExperimentConfig) -> dict:
         "ridge": regression_metrics(actual_targets, ridge_predictions),
         "mlp": regression_metrics(actual_targets, mlp_predictions),
     }
+    comparison_report = model_comparison_summary(metrics, primary_metric="rmse")
     residuals = pd.DataFrame(
         {
             "actual": actual_targets,
@@ -222,6 +224,7 @@ def run(config: ExperimentConfig) -> dict:
         config.report_dir / "permutation_importance.png",
     )
     save_json(metrics, config.report_dir / "metrics.json")
+    save_json(comparison_report, config.report_dir / "model_comparison.json")
     save_json(residual_report, config.report_dir / "residual_summary.json")
     save_json(residual_bins, config.report_dir / "residual_bins.json")
     save_json(interval_report, config.report_dir / "interval_summary.json")
@@ -254,6 +257,7 @@ def run(config: ExperimentConfig) -> dict:
                 "huber_delta": config.huber_delta,
             },
             "metrics": metrics,
+            "model_comparison": comparison_report,
             "residuals": residual_report,
             "residual_bins": residual_bins,
             "intervals": interval_report,
