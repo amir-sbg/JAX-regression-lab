@@ -1,60 +1,26 @@
 # JAX Regression Lab
 
-A small regression project built around JAX. It compares a closed-form ridge-regression baseline with a multilayer perceptron trained from first principles on the scikit-learn diabetes dataset.
+A small end-to-end regression experiment built with JAX. It compares a closed-form ridge baseline with an MLP trained from first principles on the scikit-learn diabetes dataset.
 
-## What is included
+The project keeps the model intentionally small and makes the learning mechanics visible: JAX PyTrees hold parameters and optimizer state, `jax.value_and_grad` computes updates, `jax.jit` compiles the step function, and `jax.vmap` handles batched prediction. The pipeline also checks preprocessing, validation performance, residual behavior, feature sensitivity, and local curvature.
 
-The pipeline covers:
+## Included
 
-- deterministic train, validation, and test splits
-- feature and target standardization fitted on training data only
-- a ridge solution implemented with `jax.numpy.linalg.solve`
-- a fully connected MLP represented as a JAX parameter PyTree
-- automatic differentiation with `jax.value_and_grad`
-- JIT-compiled momentum updates with `jax.jit`
-- optional warmup and cosine learning-rate decay
-- optional global-norm gradient clipping for unstable small-batch runs
-- MSE or Huber objective for checking robustness to larger residuals
-- batched prediction with `jax.vmap`
-- validation-based early stopping and a held-out test report
-- ridge-vs-MLP model comparison by the selected test metric
-- convergence reporting for loss reduction, best epoch, gradient norm, and final LR
-- residual diagnostics for checking bias and error spread
-- target-range binned residual diagnostics
-- split-conformal interval checks using validation residuals
-- input-gradient feature sensitivity for the trained JAX MLP
-- permutation feature importance for ridge and MLP predictions
-- Hessian-vector directional curvature checks around the trained MLP
+- deterministic train/validation/test splits with train-only standardization
+- ridge regression solved with `jax.numpy.linalg.solve`
+- MLP training with momentum, L2 regularization, early stopping, optional warmup, cosine decay, gradient clipping, MSE, or Huber loss
+- JIT-compiled updates and vectorized prediction
+- RMSE, MAE, R², residual, convergence, and model-comparison reports
+- conformal interval checks, permutation importance, input sensitivity, and Hessian-vector curvature probes
+- `.npz` parameter checkpoints with shape and finite-value validation
 
-The data contains 442 samples, 10 numeric features, and a continuous disease-progression target. Predictions and error metrics are reported in the original target scale.
+The dataset has 442 samples, 10 numeric features, and a continuous target. Metrics and plots are reported on the original target scale.
 
-## Mathematical setup
-
-The baseline solves the ridge objective:
-
-```text
-min_w  ||Xw - y||² + α||w||²
-```
-
-using the normal-equation system with an unregularized bias term. The neural model uses two `tanh` hidden layers and minimizes mean squared error with an L2 penalty on the weight matrices.
-
-The MLP can optimize either MSE or a Huber loss. MSE keeps the usual squared-error
-geometry, while Huber is useful when a few high-residual examples would otherwise dominate
-the early gradients. The training update is momentum gradient descent:
-
-```text
-vₜ = μvₜ₋₁ + ∇L(θₜ₋₁)
-θₜ = θₜ₋₁ - ηvₜ
-```
-
-The update is expressed as a pure function over nested parameter and optimizer-state trees. JAX handles differentiation, compilation, and device placement without an external deep-learning training framework.
-
-## Run the project
+## Setup
 
 ```bash
 git clone https://github.com/amir-sbg/JAX-regression-lab.git
 cd JAX-regression-lab
-
 python -m venv .venv
 source .venv/bin/activate       # Windows: .venv\Scripts\activate
 python -m pip install -r requirements.txt
@@ -62,13 +28,15 @@ python -m pip install -e .
 python -m pytest -q
 ```
 
-Run the default experiment:
+JAX selects the available backend at runtime. CPU is sufficient for the default experiment; an accelerator can be used when available.
+
+## Run
 
 ```bash
 python -m jax_regression.pipeline
 ```
 
-Training options can be changed from the command line:
+The main settings are configurable from the command line:
 
 ```bash
 python -m jax_regression.pipeline \
@@ -78,64 +46,33 @@ python -m jax_regression.pipeline \
   --batch-size 32 \
   --hidden-dims 64 32 \
   --learning-rate 0.01 \
-  --momentum 0.90 \
-  --warmup-epochs 10 \
-  --final-learning-rate-ratio 0.2 \
   --gradient-clip 5.0 \
   --loss huber \
-  --huber-delta 1.0 \
   --permutation-repeats 5 \
-  --curvature-probes 4 \
-  --patience 30
+  --curvature-probes 4
 ```
-
-JAX uses the available backend at runtime. The selected backend, device list, split sizes, preprocessing parameters, model size, and metrics are saved with the run.
 
 ## Outputs
 
-```text
-artifacts/
-├── mlp_parameters.npz
-├── ridge_parameters.npy
-└── training_history.csv
+The run writes model artifacts to `artifacts/` and reports to `reports/`, including:
 
-reports/
-├── conformal_intervals.json
-├── curvature.json
-├── interval_calibration.json
-├── interval_calibration.png
-├── metrics.json
-├── model_comparison.json
-├── feature_sensitivity.json
-├── permutation_importance.json
-├── permutation_importance.png
-├── run_config.json
-├── run_summary.json
-├── residual_bins.json
-├── residual_summary.json
-├── residuals.csv
-├── residuals.png
-├── training_convergence.json
-└── training_history.png
-```
+- `metrics.json` and `model_comparison.json` for ridge/MLP test performance
+- `training_convergence.json` and `training_history.png` for loss, learning-rate, and gradient behavior
+- residual summaries and target-range bins
+- conformal interval and calibration reports
+- feature sensitivity, permutation importance, and curvature diagnostics
+- `mlp_parameters.npz` and `ridge_parameters.npy` for saved model parameters
 
-`metrics.json` reports MSE, RMSE, MAE, and R² for both the ridge baseline and the JAX MLP. `model_comparison.json` records which model wins on test RMSE and the MLP delta from the ridge baseline. The residual report keeps per-sample errors and summary statistics in the original target scale, which makes it easier to see whether the neural model is biased high or low on the held-out set. The conformal interval files use validation residuals to estimate prediction bands and then report how well those bands cover the test set. The permutation-importance report complements local input gradients by measuring how much held-out MSE changes when each standardized feature is shuffled. The curvature report uses JAX Hessian-vector products to give a small local sharpness check around the trained parameters.
-
-## Project structure
+## Project layout
 
 ```text
-.
-├── src/jax_regression/
-│   ├── config.py       # experiment settings and validation
-│   ├── data.py         # dataset loading and scaling
-│   ├── baseline.py     # closed-form ridge regression
-│   ├── model.py        # MLP parameters, vmap prediction, serialization
-│   ├── train.py        # loss, gradients, JIT update, early stopping
-│   ├── evaluate.py     # regression metrics and plots
-│   └── pipeline.py     # command-line experiment
-├── tests/test_pipeline.py
-├── .github/workflows/ci.yml
-├── Makefile
-├── pyproject.toml
-└── requirements.txt
+src/jax_regression/
+├── config.py       experiment settings and validation
+├── data.py         dataset loading and scaling
+├── baseline.py     closed-form ridge regression
+├── model.py        MLP, prediction, and checkpointing
+├── train.py        losses, gradients, JIT update, and early stopping
+├── evaluate.py     metrics, diagnostics, and plots
+└── pipeline.py     command-line experiment
+tests/test_pipeline.py
 ```
