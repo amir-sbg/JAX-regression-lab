@@ -87,6 +87,15 @@ def test_mlp_shapes_and_parameter_count() -> None:
     assert parameter_count(parameters) == 73
 
 
+def test_mlp_rejects_invalid_dimensions() -> None:
+    with pytest.raises(ValueError, match="input_dim"):
+        init_mlp(0, (4,), jax.random.PRNGKey(0))
+    with pytest.raises(ValueError, match="hidden_dims"):
+        init_mlp(2, (), jax.random.PRNGKey(0))
+    with pytest.raises(ValueError, match="hidden_dims"):
+        init_mlp(2, (0,), jax.random.PRNGKey(0))
+
+
 def test_saved_parameters_round_trip(tmp_path) -> None:
     parameters = init_mlp(3, (5,), jax.random.PRNGKey(4))
     checkpoint = tmp_path / "parameters.npz"
@@ -98,6 +107,19 @@ def test_saved_parameters_round_trip(tmp_path) -> None:
         predict_batch(parameters, features),
         predict_batch(restored, features),
     )
+
+
+def test_load_parameters_rejects_incompatible_layers(tmp_path) -> None:
+    checkpoint = tmp_path / "bad.npz"
+    np.savez(
+        checkpoint,
+        layer_0_weights=np.ones((3, 4), dtype=np.float32),
+        layer_0_bias=np.ones(4, dtype=np.float32),
+        layer_1_weights=np.ones((3, 1), dtype=np.float32),
+        layer_1_bias=np.ones(1, dtype=np.float32),
+    )
+    with pytest.raises(ValueError, match="dimensions do not line up"):
+        load_parameters(checkpoint)
 
 
 def test_training_improves_a_small_regression_problem() -> None:
