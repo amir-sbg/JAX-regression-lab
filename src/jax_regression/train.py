@@ -33,6 +33,26 @@ class TrainingResult:
     best_validation_loss: float
 
 
+def _validate_training_arrays(
+    features: np.ndarray,
+    targets: np.ndarray,
+    name: str,
+) -> tuple[np.ndarray, np.ndarray]:
+    values = np.asarray(features, dtype=np.float32)
+    labels = np.asarray(targets, dtype=np.float32)
+    if values.ndim != 2:
+        raise ValueError(f"{name} features must be two-dimensional")
+    if labels.ndim != 1:
+        raise ValueError(f"{name} targets must be one-dimensional")
+    if values.shape[0] != labels.shape[0]:
+        raise ValueError(f"{name} features and targets must have the same rows")
+    if values.shape[0] == 0:
+        raise ValueError(f"{name} data must not be empty")
+    if not np.all(np.isfinite(values)) or not np.all(np.isfinite(labels)):
+        raise ValueError(f"{name} data must contain only finite values")
+    return values, labels
+
+
 def regression_loss(
     parameters,
     features,
@@ -134,6 +154,17 @@ def train_model(
     config: TrainingConfig,
     key: jax.Array,
 ) -> TrainingResult:
+    features, targets = _validate_training_arrays(features, targets, "training")
+    validation_features, validation_targets = _validate_training_arrays(
+        validation_features,
+        validation_targets,
+        "validation",
+    )
+    if not parameters:
+        raise ValueError("parameters must contain at least one layer")
+    input_dim = int(parameters[0]["weights"].shape[0])
+    if features.shape[1] != input_dim or validation_features.shape[1] != input_dim:
+        raise ValueError("feature columns must match the first layer input size")
     if config.epochs < 1 or config.batch_size < 1:
         raise ValueError("epochs and batch_size must be at least 1")
     if config.learning_rate <= 0:

@@ -122,6 +122,32 @@ def test_training_improves_a_small_regression_problem() -> None:
     assert "learning_rate" in result.history[-1]
 
 
+def test_training_rejects_bad_arrays_before_jit() -> None:
+    parameters = init_mlp(1, (4,), jax.random.PRNGKey(3))
+    with pytest.raises(ValueError, match="same rows"):
+        train_model(
+            parameters,
+            np.ones((3, 1), dtype=np.float32),
+            np.ones(2, dtype=np.float32),
+            np.ones((2, 1), dtype=np.float32),
+            np.ones(2, dtype=np.float32),
+            TrainingConfig(epochs=2),
+            jax.random.PRNGKey(4),
+        )
+    invalid = np.ones((2, 1), dtype=np.float32)
+    invalid[0, 0] = np.nan
+    with pytest.raises(ValueError, match="finite"):
+        train_model(
+            parameters,
+            invalid,
+            np.ones(2, dtype=np.float32),
+            np.ones((2, 1), dtype=np.float32),
+            np.ones(2, dtype=np.float32),
+            TrainingConfig(epochs=2),
+            jax.random.PRNGKey(4),
+        )
+
+
 def test_huber_loss_downweights_large_residuals() -> None:
     parameters = (
         {
