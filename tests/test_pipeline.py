@@ -297,6 +297,8 @@ def test_training_convergence_summary_tracks_best_epoch() -> None:
     assert summary["epochs_ran"] == 3
     assert summary["best_epoch"] == 2
     assert summary["train_loss_reduction"] == pytest.approx(0.625)
+    assert summary["mean_gradient_norm"] == pytest.approx(1.5)
+    assert summary["max_gradient_norm"] == pytest.approx(3.0)
     assert summary["final_gradient_norm"] == pytest.approx(0.5)
 
 

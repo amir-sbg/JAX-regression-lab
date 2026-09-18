@@ -94,8 +94,19 @@ def training_convergence_summary(history: list[dict[str, float]]) -> dict[str, f
 
     train_loss = np.asarray([row["train_loss"] for row in history], dtype=np.float64)
     validation_loss = np.asarray([row["validation_loss"] for row in history], dtype=np.float64)
-    if not np.all(np.isfinite(train_loss)) or not np.all(np.isfinite(validation_loss)):
-        raise ValueError("loss history must contain only finite values")
+    gradient_norms = np.asarray(
+        [row["gradient_norm"] for row in history],
+        dtype=np.float64,
+    )
+    learning_rates = np.asarray(
+        [row["learning_rate"] for row in history],
+        dtype=np.float64,
+    )
+    if not all(
+        np.all(np.isfinite(values))
+        for values in (train_loss, validation_loss, gradient_norms, learning_rates)
+    ):
+        raise ValueError("training history values must be finite")
 
     best_index = int(np.argmin(validation_loss))
     initial_train = max(float(train_loss[0]), 1e-12)
@@ -112,8 +123,10 @@ def training_convergence_summary(history: list[dict[str, float]]) -> dict[str, f
             (validation_loss[0] - validation_loss[best_index]) / initial_validation
         ),
         "best_generalization_gap": float(validation_loss[best_index] - train_loss[best_index]),
-        "final_gradient_norm": float(history[-1]["gradient_norm"]),
-        "final_learning_rate": float(history[-1]["learning_rate"]),
+        "mean_gradient_norm": float(np.mean(gradient_norms)),
+        "max_gradient_norm": float(np.max(gradient_norms)),
+        "final_gradient_norm": float(gradient_norms[-1]),
+        "final_learning_rate": float(learning_rates[-1]),
     }
 
 
