@@ -11,7 +11,7 @@ The project keeps the model intentionally small and makes the learning mechanics
 - MLP training with momentum, L2 regularization, early stopping, optional warmup, cosine decay, gradient clipping, MSE, or Huber loss
 - JIT-compiled updates and vectorized prediction
 - RMSE, MAE, R², residual, convergence, and model-comparison reports
-- conformal interval checks, permutation importance, input sensitivity, and Hessian-vector curvature probes
+- conformal interval checks, permutation importance, feature collinearity, input sensitivity, and Hessian-vector curvature probes
 - `.npz` parameter checkpoints with shape and finite-value validation
 
 The dataset has 442 samples, 10 numeric features, and a continuous target. Metrics and plots are reported on the original target scale.
@@ -60,7 +60,7 @@ The run writes model artifacts to `artifacts/` and reports to `reports/`, includ
 - `training_convergence.json` and `training_history.png` for loss, learning-rate, and gradient behavior
 - residual summaries and target-range bins
 - conformal interval and calibration reports
-- feature sensitivity, permutation importance, and curvature diagnostics
+- feature sensitivity, feature-matrix conditioning, permutation importance, and curvature diagnostics
 - `mlp_parameters.npz` and `ridge_parameters.npy` for saved model parameters
 
 ## Project layout

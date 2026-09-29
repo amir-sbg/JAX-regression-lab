@@ -12,7 +12,13 @@ import pandas as pd
 from .baseline import fit_ridge, predict_ridge
 from .config import ExperimentConfig, prepare_output_directories
 from .data import load_regression_data
-from .diagnostics import directional_curvature, feature_sensitivity, permutation_importance
+from .diagnostics import (
+    design_matrix_report,
+    directional_curvature,
+    feature_correlation_pairs,
+    feature_sensitivity,
+    permutation_importance,
+)
 from .evaluate import (
     binned_residual_summary,
     empirical_interval_summary,
@@ -162,6 +168,16 @@ def run(config: ExperimentConfig) -> dict:
             data.feature_names,
         ),
     }
+    feature_diagnostics = {
+        "description": (
+            "Numerical checks on the standardized feature matrix. These are useful for "
+            "catching collinearity or low-rank structure before interpreting coefficients."
+        ),
+        "train_design_matrix": design_matrix_report(data.x_train),
+        "test_design_matrix": design_matrix_report(data.x_test),
+        "top_correlated_pairs": feature_correlation_pairs(data.x_train, data.feature_names),
+    }
+
     def ridge_predict_original(features):
         return data.inverse_target(np.asarray(predict_ridge(ridge_parameters, features)))
 
@@ -231,6 +247,7 @@ def run(config: ExperimentConfig) -> dict:
     save_json(conformal_interval_report, config.report_dir / "conformal_intervals.json")
     save_json(interval_calibration, config.report_dir / "interval_calibration.json")
     save_json(sensitivity_report, config.report_dir / "feature_sensitivity.json")
+    save_json(feature_diagnostics, config.report_dir / "feature_diagnostics.json")
     save_json(permutation_report, config.report_dir / "permutation_importance.json")
     save_json(curvature_report, config.report_dir / "curvature.json")
     save_json(convergence_report, config.report_dir / "training_convergence.json")
@@ -263,6 +280,10 @@ def run(config: ExperimentConfig) -> dict:
             "intervals": interval_report,
             "conformal_intervals": conformal_interval_report,
             "top_feature_sensitivity": sensitivity_report["features"][:5],
+            "feature_diagnostics": {
+                "train_design_matrix": feature_diagnostics["train_design_matrix"],
+                "top_correlated_pairs": feature_diagnostics["top_correlated_pairs"][:5],
+            },
             "top_permutation_importance": permutation_report["mlp"][:5],
             "curvature": curvature_report["mlp"],
             "training_convergence": convergence_report,
