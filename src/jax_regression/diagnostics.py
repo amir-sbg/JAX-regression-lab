@@ -58,6 +58,42 @@ def feature_sensitivity(
     return rows
 
 
+def feature_correlation_pairs(
+    features: np.ndarray,
+    feature_names: tuple[str, ...],
+    top_k: int = 8,
+) -> list[dict[str, float | str]]:
+    x = np.asarray(features, dtype=np.float64)
+    if x.ndim != 2:
+        raise ValueError("features must be a two-dimensional matrix")
+    if x.shape[1] != len(feature_names):
+        raise ValueError("feature_names length must match feature columns")
+    if top_k < 1:
+        raise ValueError("top_k must be positive")
+    if len(x) < 2:
+        raise ValueError("at least two rows are needed for correlation")
+    if not np.all(np.isfinite(x)):
+        raise ValueError("features must contain only finite values")
+
+    correlations = np.corrcoef(x, rowvar=False)
+    rows = []
+    for left in range(len(feature_names)):
+        for right in range(left + 1, len(feature_names)):
+            value = float(correlations[left, right])
+            if not np.isfinite(value):
+                value = 0.0
+            rows.append(
+                {
+                    "feature_a": feature_names[left],
+                    "feature_b": feature_names[right],
+                    "correlation": value,
+                    "abs_correlation": abs(value),
+                }
+            )
+    rows.sort(key=lambda row: float(row["abs_correlation"]), reverse=True)
+    return rows[:top_k]
+
+
 def permutation_importance(
     features: np.ndarray,
     targets: np.ndarray,

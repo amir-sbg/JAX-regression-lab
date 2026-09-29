@@ -10,6 +10,7 @@ from jax_regression.config import ExperimentConfig
 from jax_regression.data import load_regression_data
 from jax_regression.diagnostics import (
     directional_curvature,
+    feature_correlation_pairs,
     feature_sensitivity,
     permutation_importance,
     random_parameter_direction,
@@ -408,6 +409,25 @@ def test_feature_sensitivity_rejects_bad_feature_matrix() -> None:
         feature_sensitivity(parameters, np.empty((0, 1), dtype=np.float32), ("x",))
     with pytest.raises(ValueError, match="finite"):
         feature_sensitivity(parameters, np.array([[np.nan]], dtype=np.float32), ("x",))
+
+
+def test_feature_correlation_pairs_rank_strong_relationships() -> None:
+    features = np.array(
+        [
+            [0.0, 0.0, 2.0],
+            [1.0, 2.0, 1.0],
+            [2.0, 4.0, 0.0],
+            [3.0, 6.0, -1.0],
+        ],
+        dtype=np.float32,
+    )
+
+    pairs = feature_correlation_pairs(features, ("a", "b", "c"), top_k=2)
+
+    assert pairs[0]["feature_a"] == "a"
+    assert pairs[0]["feature_b"] == "b"
+    assert pairs[0]["correlation"] == pytest.approx(1.0)
+    assert len(pairs) == 2
 
 
 def test_permutation_importance_ranks_predictive_feature() -> None:
