@@ -94,6 +94,46 @@ def feature_correlation_pairs(
     return rows[:top_k]
 
 
+def design_matrix_report(features: np.ndarray) -> dict[str, float | int]:
+    x = np.asarray(features, dtype=np.float64)
+    if x.ndim != 2:
+        raise ValueError("features must be a two-dimensional matrix")
+    if x.shape[0] == 0 or x.shape[1] == 0:
+        raise ValueError("features must contain at least one row and one column")
+    if not np.all(np.isfinite(x)):
+        raise ValueError("features must contain only finite values")
+
+    centered = x - x.mean(axis=0, keepdims=True)
+    singular_values = np.linalg.svd(centered, full_matrices=False, compute_uv=False)
+    if singular_values.size == 0:
+        effective_rank = 0.0
+        condition_number = 0.0
+        smallest = 0.0
+        largest = 0.0
+    else:
+        largest = float(singular_values[0])
+        smallest = float(singular_values[-1])
+        safe_values = singular_values[singular_values > 1e-12]
+        if safe_values.size == 0:
+            effective_rank = 0.0
+            condition_number = 0.0
+        else:
+            weights = safe_values / safe_values.sum()
+            entropy = -float(np.sum(weights * np.log(weights)))
+            effective_rank = float(np.exp(entropy))
+            condition_number = largest / max(float(safe_values[-1]), 1e-12)
+
+    return {
+        "rows": int(x.shape[0]),
+        "columns": int(x.shape[1]),
+        "rank": int(np.linalg.matrix_rank(centered)),
+        "effective_rank": effective_rank,
+        "largest_singular_value": largest,
+        "smallest_singular_value": smallest,
+        "condition_number": float(condition_number),
+    }
+
+
 def permutation_importance(
     features: np.ndarray,
     targets: np.ndarray,

@@ -9,6 +9,7 @@ from jax_regression.baseline import fit_ridge, predict_ridge
 from jax_regression.config import ExperimentConfig
 from jax_regression.data import load_regression_data
 from jax_regression.diagnostics import (
+    design_matrix_report,
     directional_curvature,
     feature_correlation_pairs,
     feature_sensitivity,
@@ -428,6 +429,26 @@ def test_feature_correlation_pairs_rank_strong_relationships() -> None:
     assert pairs[0]["feature_b"] == "b"
     assert pairs[0]["correlation"] == pytest.approx(1.0)
     assert len(pairs) == 2
+
+
+def test_design_matrix_report_tracks_rank_and_conditioning() -> None:
+    features = np.array(
+        [
+            [0.0, 0.0, 1.0],
+            [1.0, 2.0, 1.0],
+            [2.0, 4.0, 1.0],
+            [3.0, 6.0, 1.0],
+        ],
+        dtype=np.float32,
+    )
+
+    report = design_matrix_report(features)
+
+    assert report["rows"] == 4
+    assert report["columns"] == 3
+    assert report["rank"] == 1
+    assert report["effective_rank"] == pytest.approx(1.0)
+    assert report["condition_number"] >= 1.0
 
 
 def test_permutation_importance_ranks_predictive_feature() -> None:
