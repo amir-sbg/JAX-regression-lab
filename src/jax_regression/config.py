@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from math import isfinite
 from pathlib import Path
 
 
@@ -22,6 +23,7 @@ class ExperimentConfig:
     loss: str = "mse"
     huber_delta: float = 1.0
     ridge_alpha: float = 1.0
+    ridge_alpha_grid: tuple[float, ...] = ()
     permutation_repeats: int = 5
     curvature_probes: int = 4
     output_dir: Path = Path("artifacts")
@@ -42,6 +44,8 @@ class ExperimentConfig:
             raise ValueError("momentum must be between 0 and 1")
         if self.l2_penalty < 0 or self.ridge_alpha < 0:
             raise ValueError("regularization values must not be negative")
+        if any(not isfinite(alpha) or alpha < 0 for alpha in self.ridge_alpha_grid):
+            raise ValueError("ridge_alpha_grid values must be finite and non-negative")
         if self.patience < 1:
             raise ValueError("patience must be at least 1")
         if self.gradient_clip is not None and self.gradient_clip <= 0:

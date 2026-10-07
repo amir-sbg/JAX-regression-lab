@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import jax.numpy as jnp
+import numpy as np
 
 
 def _validated_regression_arrays(features, targets=None):
@@ -39,3 +40,37 @@ def predict_ridge(parameters, features):
         raise ValueError("parameters must contain one coefficient per feature plus a bias")
     augmented = jnp.concatenate([x, jnp.ones((x.shape[0], 1))], axis=1)
     return augmented @ params
+
+
+def select_ridge_alpha(
+    train_features,
+    train_targets,
+    validation_features,
+    validation_targets,
+    alphas: tuple[float, ...],
+):
+    """Select ridge regularization on validation MSE and return the fitted path."""
+
+    if not alphas:
+        raise ValueError("alphas must contain at least one value")
+    if any(not np.isfinite(alpha) or alpha < 0 for alpha in alphas):
+        raise ValueError("alphas must be finite and non-negative")
+    validation_x, validation_y = _validated_regression_arrays(
+        validation_features,
+        validation_targets,
+    )
+
+    candidates = []
+    fitted = []
+    for alpha in dict.fromkeys(float(value) for value in alphas):
+        parameters = fit_ridge(train_features, train_targets, alpha=alpha)
+        predictions = predict_ridge(parameters, validation_x)
+        mse = float(jnp.mean((predictions - validation_y) ** 2))
+        candidates.append({"alpha": alpha, "validation_mse": mse})
+        fitted.append(parameters)
+
+    best_index = min(range(len(candidates)), key=lambda index: candidates[index]["validation_mse"])
+    return fitted[best_index], {
+        "selected_alpha": candidates[best_index]["alpha"],
+        "candidates": candidates,
+    }

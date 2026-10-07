@@ -9,7 +9,7 @@ import jax
 import numpy as np
 import pandas as pd
 
-from .baseline import fit_ridge, predict_ridge
+from .baseline import fit_ridge, predict_ridge, select_ridge_alpha
 from .config import ExperimentConfig, prepare_output_directories
 from .data import load_regression_data
 from .diagnostics import (
@@ -41,6 +41,7 @@ from .train import TrainingConfig, train_model
 def _config_payload(config: ExperimentConfig) -> dict:
     payload = asdict(config)
     payload["hidden_dims"] = list(config.hidden_dims)
+    payload["ridge_alpha_grid"] = list(config.ridge_alpha_grid)
     payload["output_dir"] = str(config.output_dir)
     payload["report_dir"] = str(config.report_dir)
     return payload
@@ -56,10 +57,13 @@ def run(config: ExperimentConfig) -> dict:
     key = jax.random.PRNGKey(config.seed)
     model_key, training_key = jax.random.split(key)
 
-    ridge_parameters = fit_ridge(
+    ridge_alphas = config.ridge_alpha_grid or (config.ridge_alpha,)
+    ridge_parameters, ridge_selection = select_ridge_alpha(
         data.x_train,
         data.y_train,
-        alpha=config.ridge_alpha,
+        data.x_validation,
+        data.y_validation,
+        ridge_alphas,
     )
     ridge_validation_predictions = np.asarray(
         predict_ridge(ridge_parameters, data.x_validation)
@@ -241,6 +245,7 @@ def run(config: ExperimentConfig) -> dict:
     )
     save_json(metrics, config.report_dir / "metrics.json")
     save_json(comparison_report, config.report_dir / "model_comparison.json")
+    save_json(ridge_selection, config.report_dir / "ridge_regularization_path.json")
     save_json(residual_report, config.report_dir / "residual_summary.json")
     save_json(residual_bins, config.report_dir / "residual_bins.json")
     save_json(interval_report, config.report_dir / "interval_summary.json")
@@ -275,6 +280,7 @@ def run(config: ExperimentConfig) -> dict:
             },
             "metrics": metrics,
             "model_comparison": comparison_report,
+            "ridge_regularization": ridge_selection,
             "residuals": residual_report,
             "residual_bins": residual_bins,
             "intervals": interval_report,
@@ -312,6 +318,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--loss", choices=["mse", "huber"], default="mse")
     parser.add_argument("--huber-delta", type=float, default=1.0)
     parser.add_argument("--ridge-alpha", type=float, default=1.0)
+    parser.add_argument("--ridge-alpha-grid", nargs="*", type=float, default=[])
     parser.add_argument("--permutation-repeats", type=int, default=5)
     parser.add_argument("--curvature-probes", type=int, default=4)
     parser.add_argument("--output-dir", type=Path, default=Path("artifacts"))
@@ -322,6 +329,7 @@ def build_parser() -> argparse.ArgumentParser:
 def config_from_args(args: argparse.Namespace) -> ExperimentConfig:
     values = vars(args).copy()
     values["hidden_dims"] = tuple(values["hidden_dims"])
+    values["ridge_alpha_grid"] = tuple(values["ridge_alpha_grid"])
     return ExperimentConfig(**values)
 
 

@@ -5,7 +5,7 @@ import pytest
 import jax
 import jax.numpy as jnp
 
-from jax_regression.baseline import fit_ridge, predict_ridge
+from jax_regression.baseline import fit_ridge, predict_ridge, select_ridge_alpha
 from jax_regression.config import ExperimentConfig
 from jax_regression.data import load_regression_data
 from jax_regression.diagnostics import (
@@ -80,6 +80,25 @@ def test_ridge_baseline_validates_input_shapes() -> None:
         fit_ridge(np.ones((3, 2)), np.ones(3), alpha=-0.1)
     with pytest.raises(ValueError, match="one coefficient"):
         predict_ridge(np.ones(2), np.ones((3, 2)))
+
+
+def test_ridge_alpha_selection_reports_validation_path() -> None:
+    train_x = np.arange(8, dtype=np.float32).reshape(-1, 1)
+    train_y = 3.0 * train_x[:, 0] - 2.0
+    validation_x = np.array([[8.0], [9.0]], dtype=np.float32)
+    validation_y = 3.0 * validation_x[:, 0] - 2.0
+
+    parameters, report = select_ridge_alpha(
+        train_x,
+        train_y,
+        validation_x,
+        validation_y,
+        (0.0, 1.0, 10.0),
+    )
+
+    assert report["selected_alpha"] == 0.0
+    assert len(report["candidates"]) == 3
+    np.testing.assert_allclose(predict_ridge(parameters, validation_x), validation_y, atol=1e-4)
 
 
 def test_mlp_shapes_and_parameter_count() -> None:
