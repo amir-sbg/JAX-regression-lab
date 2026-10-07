@@ -71,6 +71,40 @@ def model_comparison_summary(
     return summary
 
 
+def paired_bootstrap_comparison(
+    targets,
+    baseline_predictions,
+    candidate_predictions,
+    samples: int = 2000,
+    seed: int = 42,
+) -> dict[str, float | int]:
+    """Estimate uncertainty in the candidate-minus-baseline RMSE difference."""
+
+    if samples < 1:
+        raise ValueError("samples must be positive")
+    actual, baseline = _matching_arrays(targets, baseline_predictions)
+    _, candidate = _matching_arrays(targets, candidate_predictions)
+    rng = np.random.default_rng(seed)
+    deltas = np.empty(samples, dtype=np.float64)
+    for sample in range(samples):
+        indices = rng.integers(0, len(actual), size=len(actual))
+        baseline_rmse = np.sqrt(np.mean((baseline[indices] - actual[indices]) ** 2))
+        candidate_rmse = np.sqrt(np.mean((candidate[indices] - actual[indices]) ** 2))
+        deltas[sample] = candidate_rmse - baseline_rmse
+
+    observed_baseline = float(np.sqrt(np.mean((baseline - actual) ** 2)))
+    observed_candidate = float(np.sqrt(np.mean((candidate - actual) ** 2)))
+    return {
+        "samples": samples,
+        "baseline_rmse": observed_baseline,
+        "candidate_rmse": observed_candidate,
+        "candidate_minus_baseline_rmse": observed_candidate - observed_baseline,
+        "delta_ci95_low": float(np.quantile(deltas, 0.025)),
+        "delta_ci95_high": float(np.quantile(deltas, 0.975)),
+        "probability_candidate_better": float(np.mean(deltas < 0.0)),
+    }
+
+
 def residual_summary(targets, predictions) -> dict[str, float]:
     actual, estimated = _matching_arrays(targets, predictions)
     residuals = estimated - actual

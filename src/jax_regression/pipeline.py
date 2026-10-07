@@ -24,6 +24,7 @@ from .evaluate import (
     empirical_interval_summary,
     interval_calibration_curve,
     model_comparison_summary,
+    paired_bootstrap_comparison,
     regression_metrics,
     residual_summary,
     save_importance_plot,
@@ -112,6 +113,12 @@ def run(config: ExperimentConfig) -> dict:
         "mlp": regression_metrics(actual_targets, mlp_predictions),
     }
     comparison_report = model_comparison_summary(metrics, primary_metric="rmse")
+    bootstrap_comparison = paired_bootstrap_comparison(
+        actual_targets,
+        ridge_predictions,
+        mlp_predictions,
+        seed=config.seed,
+    )
     residuals = pd.DataFrame(
         {
             "actual": actual_targets,
@@ -245,6 +252,7 @@ def run(config: ExperimentConfig) -> dict:
     )
     save_json(metrics, config.report_dir / "metrics.json")
     save_json(comparison_report, config.report_dir / "model_comparison.json")
+    save_json(bootstrap_comparison, config.report_dir / "bootstrap_comparison.json")
     save_json(ridge_selection, config.report_dir / "ridge_regularization_path.json")
     save_json(residual_report, config.report_dir / "residual_summary.json")
     save_json(residual_bins, config.report_dir / "residual_bins.json")
@@ -280,6 +288,7 @@ def run(config: ExperimentConfig) -> dict:
             },
             "metrics": metrics,
             "model_comparison": comparison_report,
+            "bootstrap_comparison": bootstrap_comparison,
             "ridge_regularization": ridge_selection,
             "residuals": residual_report,
             "residual_bins": residual_bins,

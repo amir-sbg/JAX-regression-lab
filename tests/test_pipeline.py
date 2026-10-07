@@ -22,6 +22,7 @@ from jax_regression.evaluate import (
     empirical_interval_summary,
     interval_calibration_curve,
     model_comparison_summary,
+    paired_bootstrap_comparison,
     regression_metrics,
     residual_summary,
     split_conformal_interval_summary,
@@ -99,6 +100,24 @@ def test_ridge_alpha_selection_reports_validation_path() -> None:
     assert report["selected_alpha"] == 0.0
     assert len(report["candidates"]) == 3
     np.testing.assert_allclose(predict_ridge(parameters, validation_x), validation_y, atol=1e-4)
+
+
+def test_paired_bootstrap_detects_better_candidate() -> None:
+    targets = np.linspace(-2.0, 2.0, 40)
+    baseline = targets + np.linspace(-1.0, 1.0, 40)
+    candidate = targets + 0.1
+
+    report = paired_bootstrap_comparison(
+        targets,
+        baseline,
+        candidate,
+        samples=300,
+        seed=8,
+    )
+
+    assert report["candidate_minus_baseline_rmse"] < 0
+    assert report["delta_ci95_high"] < 0
+    assert report["probability_candidate_better"] > 0.95
 
 
 def test_mlp_shapes_and_parameter_count() -> None:
