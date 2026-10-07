@@ -58,6 +58,54 @@ def feature_sensitivity(
     return rows
 
 
+def integrated_gradient_importance(
+    parameters: tuple[dict[str, jax.Array], ...],
+    features: np.ndarray,
+    feature_names: tuple[str, ...],
+    steps: int = 32,
+) -> list[dict[str, float | int | str]]:
+    """Aggregate path attributions from the standardized feature mean."""
+
+    if steps < 1:
+        raise ValueError("steps must be positive")
+    feature_array = _validated_feature_matrix(features)
+    if feature_array.shape[1] != len(feature_names):
+        raise ValueError("feature_names length must match feature columns")
+
+    baseline = jnp.zeros(feature_array.shape[1], dtype=feature_array.dtype)
+    alphas = jnp.linspace(0.0, 1.0, steps + 1)
+    gradient_fn = jax.grad(lambda row: mlp_apply(parameters, row))
+
+    def attribute(row):
+        path = baseline + alphas[:, None] * (row - baseline)
+        path_gradients = jax.vmap(gradient_fn)(path)
+        average_gradient = jnp.mean(
+            (path_gradients[:-1] + path_gradients[1:]) * 0.5,
+            axis=0,
+        )
+        return (row - baseline) * average_gradient
+
+    attributions = np.asarray(jax.vmap(attribute)(feature_array))
+    rows = []
+    for index, name in enumerate(feature_names):
+        values = attributions[:, index]
+        rows.append(
+            {
+                "feature": name,
+                "mean_attribution": float(np.mean(values)),
+                "mean_abs_attribution": float(np.mean(np.abs(values))),
+            }
+        )
+    total = sum(float(row["mean_abs_attribution"]) for row in rows)
+    rows.sort(key=lambda row: float(row["mean_abs_attribution"]), reverse=True)
+    for rank, row in enumerate(rows, start=1):
+        row["rank"] = rank
+        row["normalized_importance"] = (
+            float(row["mean_abs_attribution"]) / total if total > 0 else 0.0
+        )
+    return rows
+
+
 def feature_correlation_pairs(
     features: np.ndarray,
     feature_names: tuple[str, ...],

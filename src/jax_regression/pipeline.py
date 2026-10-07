@@ -17,6 +17,7 @@ from .diagnostics import (
     directional_curvature,
     feature_correlation_pairs,
     feature_sensitivity,
+    integrated_gradient_importance,
     permutation_importance,
 )
 from .evaluate import (
@@ -179,6 +180,17 @@ def run(config: ExperimentConfig) -> dict:
             data.feature_names,
         ),
     }
+    attribution_report = {
+        "description": (
+            "Integrated gradients from the standardized feature mean to each test example. "
+            "The path integral captures nonlinear local contributions from the trained MLP."
+        ),
+        "features": integrated_gradient_importance(
+            training.parameters,
+            data.x_test,
+            data.feature_names,
+        ),
+    }
     feature_diagnostics = {
         "description": (
             "Numerical checks on the standardized feature matrix. These are useful for "
@@ -260,6 +272,7 @@ def run(config: ExperimentConfig) -> dict:
     save_json(conformal_interval_report, config.report_dir / "conformal_intervals.json")
     save_json(interval_calibration, config.report_dir / "interval_calibration.json")
     save_json(sensitivity_report, config.report_dir / "feature_sensitivity.json")
+    save_json(attribution_report, config.report_dir / "integrated_gradients.json")
     save_json(feature_diagnostics, config.report_dir / "feature_diagnostics.json")
     save_json(permutation_report, config.report_dir / "permutation_importance.json")
     save_json(curvature_report, config.report_dir / "curvature.json")
@@ -295,6 +308,7 @@ def run(config: ExperimentConfig) -> dict:
             "intervals": interval_report,
             "conformal_intervals": conformal_interval_report,
             "top_feature_sensitivity": sensitivity_report["features"][:5],
+            "top_integrated_gradients": attribution_report["features"][:5],
             "feature_diagnostics": {
                 "train_design_matrix": feature_diagnostics["train_design_matrix"],
                 "top_correlated_pairs": feature_diagnostics["top_correlated_pairs"][:5],

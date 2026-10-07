@@ -13,6 +13,7 @@ from jax_regression.diagnostics import (
     directional_curvature,
     feature_correlation_pairs,
     feature_sensitivity,
+    integrated_gradient_importance,
     permutation_importance,
     random_parameter_direction,
     tree_dot,
@@ -448,6 +449,22 @@ def test_feature_sensitivity_rejects_bad_feature_matrix() -> None:
         feature_sensitivity(parameters, np.empty((0, 1), dtype=np.float32), ("x",))
     with pytest.raises(ValueError, match="finite"):
         feature_sensitivity(parameters, np.array([[np.nan]], dtype=np.float32), ("x",))
+
+
+def test_integrated_gradients_rank_linear_feature_contributions() -> None:
+    parameters = (
+        {
+            "weights": jnp.array([[2.0], [0.25]], dtype=jnp.float32),
+            "bias": jnp.zeros((1,), dtype=jnp.float32),
+        },
+    )
+    features = np.array([[2.0, 1.0], [-2.0, 1.0]], dtype=np.float32)
+
+    rows = integrated_gradient_importance(parameters, features, ("strong", "weak"), steps=8)
+
+    assert rows[0]["feature"] == "strong"
+    assert rows[0]["mean_abs_attribution"] == pytest.approx(4.0)
+    assert sum(row["normalized_importance"] for row in rows) == pytest.approx(1.0)
 
 
 def test_feature_correlation_pairs_rank_strong_relationships() -> None:
