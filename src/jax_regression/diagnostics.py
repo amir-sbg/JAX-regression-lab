@@ -30,6 +30,46 @@ def input_gradients(
     return np.asarray(jax.vmap(gradient_fn)(feature_array))
 
 
+def input_gradient_check(
+    parameters: tuple[dict[str, jax.Array], ...],
+    features: np.ndarray,
+    epsilon: float = 1e-3,
+    max_rows: int = 8,
+) -> dict[str, float | int]:
+    """Compare autodiff input gradients with central finite differences."""
+
+    if epsilon <= 0:
+        raise ValueError("epsilon must be positive")
+    if max_rows < 1:
+        raise ValueError("max_rows must be positive")
+    feature_array = np.asarray(_validated_feature_matrix(features)[:max_rows])
+    autodiff = input_gradients(parameters, feature_array)
+    finite_difference = np.empty_like(autodiff)
+    for column in range(feature_array.shape[1]):
+        positive = feature_array.copy()
+        negative = feature_array.copy()
+        positive[:, column] += epsilon
+        negative[:, column] -= epsilon
+        positive_prediction = np.asarray(jax.vmap(lambda row: mlp_apply(parameters, row))(positive))
+        negative_prediction = np.asarray(jax.vmap(lambda row: mlp_apply(parameters, row))(negative))
+        finite_difference[:, column] = (
+            positive_prediction - negative_prediction
+        ) / (2.0 * epsilon)
+
+    absolute_error = np.abs(autodiff - finite_difference)
+    scale = np.maximum(np.abs(autodiff), np.abs(finite_difference))
+    relative_error = absolute_error / np.maximum(scale, 1e-6)
+    return {
+        "rows_checked": int(len(feature_array)),
+        "features_checked": int(feature_array.shape[1]),
+        "epsilon": float(epsilon),
+        "mean_absolute_error": float(np.mean(absolute_error)),
+        "max_absolute_error": float(np.max(absolute_error)),
+        "mean_relative_error": float(np.mean(relative_error)),
+        "max_relative_error": float(np.max(relative_error)),
+    }
+
+
 def feature_sensitivity(
     parameters: tuple[dict[str, jax.Array], ...],
     features: np.ndarray,

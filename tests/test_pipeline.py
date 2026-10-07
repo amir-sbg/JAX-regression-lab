@@ -14,6 +14,7 @@ from jax_regression.diagnostics import (
     feature_correlation_pairs,
     feature_sensitivity,
     integrated_gradient_importance,
+    input_gradient_check,
     permutation_importance,
     random_parameter_direction,
     tree_dot,
@@ -465,6 +466,21 @@ def test_integrated_gradients_rank_linear_feature_contributions() -> None:
     assert rows[0]["feature"] == "strong"
     assert rows[0]["mean_abs_attribution"] == pytest.approx(4.0)
     assert sum(row["normalized_importance"] for row in rows) == pytest.approx(1.0)
+
+
+def test_input_gradient_check_matches_linear_model() -> None:
+    parameters = (
+        {
+            "weights": jnp.array([[1.5], [-0.75]], dtype=jnp.float32),
+            "bias": jnp.array([0.2], dtype=jnp.float32),
+        },
+    )
+    features = np.array([[0.2, -1.0], [1.5, 0.4]], dtype=np.float32)
+
+    report = input_gradient_check(parameters, features, epsilon=1e-2)
+
+    assert report["rows_checked"] == 2
+    assert report["max_absolute_error"] < 1e-4
 
 
 def test_feature_correlation_pairs_rank_strong_relationships() -> None:

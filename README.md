@@ -7,11 +7,12 @@ The project keeps the model intentionally small and makes the learning mechanics
 ## Included
 
 - deterministic train/validation/test splits with train-only standardization
-- ridge regression solved with `jax.numpy.linalg.solve`
+- ridge regression solved with `jax.numpy.linalg.solve`, with an optional validation-selected regularization path
 - MLP training with momentum, L2 regularization, early stopping, optional warmup, cosine decay, gradient clipping, MSE, or Huber loss
 - JIT-compiled updates and vectorized prediction
 - RMSE, MAE, R², residual, convergence, and model-comparison reports
-- conformal interval checks, permutation importance, feature collinearity, input sensitivity, and Hessian-vector curvature probes
+- bootstrap model comparison, conformal intervals, permutation importance, integrated gradients, collinearity, and curvature probes
+- numerical finite-difference checks for JAX input gradients
 - `.npz` parameter checkpoints with shape and finite-value validation
 
 The dataset has 442 samples, 10 numeric features, and a continuous target. Metrics and plots are reported on the original target scale.
@@ -57,10 +58,11 @@ python -m jax_regression.pipeline \
 The run writes model artifacts to `artifacts/` and reports to `reports/`, including:
 
 - `metrics.json` and `model_comparison.json` for ridge/MLP test performance
+- `bootstrap_comparison.json` and `ridge_regularization_path.json` for model-selection uncertainty
 - `training_convergence.json` and `training_history.png` for loss, learning-rate, and gradient behavior
 - residual summaries and target-range bins
 - conformal interval and calibration reports
-- feature sensitivity, feature-matrix conditioning, permutation importance, and curvature diagnostics
+- feature sensitivity, integrated gradients, feature-matrix conditioning, gradient checks, and curvature diagnostics
 - `mlp_parameters.npz` and `ridge_parameters.npy` for saved model parameters
 
 ## Project layout
