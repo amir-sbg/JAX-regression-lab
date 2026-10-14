@@ -16,6 +16,7 @@ from jax_regression.diagnostics import (
     integrated_gradient_importance,
     input_gradient_check,
     per_example_gradient_norms,
+    parameter_noise_stability,
     permutation_importance,
     random_parameter_direction,
     tree_dot,
@@ -509,6 +510,22 @@ def test_per_example_gradient_norms_surface_hard_examples() -> None:
     assert report["examples"] == 3
     assert report["max_gradient_example"] == 2
     assert report["p90_gradient_norm"] >= report["median_gradient_norm"]
+
+
+def test_parameter_noise_stability_is_seeded_and_finite() -> None:
+    parameters = init_mlp(2, (4,), jax.random.PRNGKey(21))
+    features = np.ones((6, 2), dtype=np.float32)
+
+    first = parameter_noise_stability(
+        parameters, features, jax.random.PRNGKey(22), relative_std=0.02, samples=5
+    )
+    second = parameter_noise_stability(
+        parameters, features, jax.random.PRNGKey(22), relative_std=0.02, samples=5
+    )
+
+    assert first == second
+    assert first["mean_prediction_rmse"] > 0
+    assert first["max_prediction_rmse"] >= first["p95_prediction_rmse"]
 
 
 def test_feature_correlation_pairs_rank_strong_relationships() -> None:

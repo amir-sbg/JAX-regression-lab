@@ -11,7 +11,7 @@ The project keeps the model intentionally small and makes the learning mechanics
 - MLP training with momentum, L2 regularization, early stopping, optional warmup, cosine decay, gradient clipping, MSE, Huber, or smooth pseudo-Huber loss
 - JIT-compiled updates and vectorized prediction
 - RMSE, MAE, median and tail absolute error, R², residual, convergence, and model-comparison reports
-- bootstrap model comparison, conformal intervals, permutation importance, integrated gradients, collinearity, and curvature probes
+- bootstrap comparison, conformal intervals, permutation importance, integrated gradients, collinearity, curvature, and parameter-noise stability probes
 - numerical finite-difference checks for input gradients and per-example parameter-gradient norms
 - `.npz` parameter checkpoints with shape and finite-value validation
 

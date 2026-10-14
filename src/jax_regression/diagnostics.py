@@ -63,6 +63,41 @@ def per_example_gradient_norms(
     }
 
 
+def parameter_noise_stability(
+    parameters: tuple[dict[str, jax.Array], ...],
+    features: np.ndarray,
+    key: jax.Array,
+    relative_std: float = 0.01,
+    samples: int = 16,
+) -> dict[str, float | int]:
+    if relative_std <= 0 or samples < 1:
+        raise ValueError("relative_std and samples must be positive")
+    feature_array = _validated_feature_matrix(features)
+    baseline = jax.vmap(lambda row: mlp_apply(parameters, row))(feature_array)
+    leaves, tree = jax.tree_util.tree_flatten(parameters)
+    drifts = []
+    for sample_key in jax.random.split(key, samples):
+        noise_keys = jax.random.split(sample_key, len(leaves))
+        perturbed_leaves = [
+            value
+            + relative_std
+            * jnp.maximum(jnp.abs(value), 1e-3)
+            * jax.random.normal(noise_key, value.shape)
+            for value, noise_key in zip(leaves, noise_keys)
+        ]
+        perturbed = jax.tree_util.tree_unflatten(tree, perturbed_leaves)
+        predictions = jax.vmap(lambda row: mlp_apply(perturbed, row))(feature_array)
+        drifts.append(jnp.sqrt(jnp.mean((predictions - baseline) ** 2)))
+    values = np.asarray(jnp.stack(drifts))
+    return {
+        "samples": samples,
+        "relative_parameter_std": float(relative_std),
+        "mean_prediction_rmse": float(np.mean(values)),
+        "p95_prediction_rmse": float(np.quantile(values, 0.95)),
+        "max_prediction_rmse": float(np.max(values)),
+    }
+
+
 def input_gradient_check(
     parameters: tuple[dict[str, jax.Array], ...],
     features: np.ndarray,
