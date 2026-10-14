@@ -30,6 +30,39 @@ def input_gradients(
     return np.asarray(jax.vmap(gradient_fn)(feature_array))
 
 
+def per_example_gradient_norms(
+    parameters: tuple[dict[str, jax.Array], ...],
+    features: np.ndarray,
+    targets: np.ndarray,
+) -> dict[str, float | int]:
+    feature_array = _validated_feature_matrix(features)
+    target_array = np.asarray(targets, dtype=np.float32)
+    if target_array.ndim != 1 or len(target_array) != len(feature_array):
+        raise ValueError("targets must be a vector aligned with feature rows")
+    if not np.all(np.isfinite(target_array)):
+        raise ValueError("targets must contain only finite values")
+
+    def example_loss(model_parameters, row, target):
+        residual = mlp_apply(model_parameters, row) - target
+        return 0.5 * residual**2
+
+    gradient_tree = jax.vmap(jax.grad(example_loss), in_axes=(None, 0, 0))(
+        parameters, feature_array, jnp.asarray(target_array)
+    )
+    squared_norms = jnp.zeros(len(feature_array), dtype=jnp.float32)
+    for leaf in jax.tree_util.tree_leaves(gradient_tree):
+        squared_norms += jnp.sum(leaf**2, axis=tuple(range(1, leaf.ndim)))
+    norms = np.asarray(jnp.sqrt(squared_norms))
+    return {
+        "examples": int(len(norms)),
+        "mean_gradient_norm": float(np.mean(norms)),
+        "median_gradient_norm": float(np.median(norms)),
+        "p90_gradient_norm": float(np.quantile(norms, 0.90)),
+        "max_gradient_norm": float(np.max(norms)),
+        "max_gradient_example": int(np.argmax(norms)),
+    }
+
+
 def input_gradient_check(
     parameters: tuple[dict[str, jax.Array], ...],
     features: np.ndarray,

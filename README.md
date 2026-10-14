@@ -12,7 +12,7 @@ The project keeps the model intentionally small and makes the learning mechanics
 - JIT-compiled updates and vectorized prediction
 - RMSE, MAE, median and tail absolute error, R², residual, convergence, and model-comparison reports
 - bootstrap model comparison, conformal intervals, permutation importance, integrated gradients, collinearity, and curvature probes
-- numerical finite-difference checks for JAX input gradients
+- numerical finite-difference checks for input gradients and per-example parameter-gradient norms
 - `.npz` parameter checkpoints with shape and finite-value validation
 
 The dataset has 442 samples, 10 numeric features, and a continuous target. Metrics and plots are reported on the original target scale.

@@ -15,6 +15,7 @@ from jax_regression.diagnostics import (
     feature_sensitivity,
     integrated_gradient_importance,
     input_gradient_check,
+    per_example_gradient_norms,
     permutation_importance,
     random_parameter_direction,
     tree_dot,
@@ -496,6 +497,18 @@ def test_input_gradient_check_matches_linear_model() -> None:
 
     assert report["rows_checked"] == 2
     assert report["max_absolute_error"] < 1e-4
+
+
+def test_per_example_gradient_norms_surface_hard_examples() -> None:
+    parameters = ({"weights": jnp.ones((1, 1)), "bias": jnp.zeros(1)},)
+    features = np.array([[1.0], [1.0], [1.0]], dtype=np.float32)
+    targets = np.array([1.0, 2.0, 10.0], dtype=np.float32)
+
+    report = per_example_gradient_norms(parameters, features, targets)
+
+    assert report["examples"] == 3
+    assert report["max_gradient_example"] == 2
+    assert report["p90_gradient_norm"] >= report["median_gradient_norm"]
 
 
 def test_feature_correlation_pairs_rank_strong_relationships() -> None:
