@@ -25,6 +25,7 @@ def _matching_arrays(targets, predictions) -> tuple[np.ndarray, np.ndarray]:
 def regression_metrics(targets, predictions) -> dict[str, float]:
     actual, estimated = _matching_arrays(targets, predictions)
     residuals = estimated - actual
+    absolute_errors = np.abs(residuals)
     mse = float(np.mean(residuals**2))
     total_variation = np.sum((actual - actual.mean()) ** 2)
     if total_variation == 0:
@@ -35,6 +36,9 @@ def regression_metrics(targets, predictions) -> dict[str, float]:
         "mse": mse,
         "rmse": float(np.sqrt(mse)),
         "mae": float(np.mean(np.abs(residuals))),
+        "median_absolute_error": float(np.median(absolute_errors)),
+        "p90_absolute_error": float(np.quantile(absolute_errors, 0.90)),
+        "max_absolute_error": float(np.max(absolute_errors)),
         "r2": r2,
     }
 

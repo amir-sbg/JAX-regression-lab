@@ -258,6 +258,9 @@ def test_metrics_include_standard_regression_values() -> None:
     assert metrics["mse"] == 0.5
     assert metrics["rmse"] == pytest.approx(np.sqrt(0.5))
     assert metrics["mae"] == 0.5
+    assert metrics["median_absolute_error"] == 0.5
+    assert metrics["p90_absolute_error"] == pytest.approx(0.9)
+    assert metrics["max_absolute_error"] == 1.0
 
 
 def test_metrics_reject_bad_inputs() -> None:

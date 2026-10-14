@@ -10,7 +10,7 @@ The project keeps the model intentionally small and makes the learning mechanics
 - ridge regression solved with `jax.numpy.linalg.solve`, with an optional validation-selected regularization path
 - MLP training with momentum, L2 regularization, early stopping, optional warmup, cosine decay, gradient clipping, MSE, or Huber loss
 - JIT-compiled updates and vectorized prediction
-- RMSE, MAE, R², residual, convergence, and model-comparison reports
+- RMSE, MAE, median and tail absolute error, R², residual, convergence, and model-comparison reports
 - bootstrap model comparison, conformal intervals, permutation importance, integrated gradients, collinearity, and curvature probes
 - numerical finite-difference checks for JAX input gradients
 - `.npz` parameter checkpoints with shape and finite-value validation
