@@ -345,7 +345,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--gradient-clip", type=float)
     parser.add_argument("--warmup-epochs", type=int, default=0)
     parser.add_argument("--final-learning-rate-ratio", type=float, default=1.0)
-    parser.add_argument("--loss", choices=["mse", "huber"], default="mse")
+    parser.add_argument("--loss", choices=["mse", "huber", "pseudo_huber"], default="mse")
     parser.add_argument("--huber-delta", type=float, default=1.0)
     parser.add_argument("--ridge-alpha", type=float, default=1.0)
     parser.add_argument("--ridge-alpha-grid", nargs="*", type=float, default=[])

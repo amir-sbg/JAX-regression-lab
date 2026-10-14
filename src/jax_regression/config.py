@@ -54,8 +54,8 @@ class ExperimentConfig:
             raise ValueError("warmup_epochs must be non-negative and smaller than epochs")
         if not 0.0 < self.final_learning_rate_ratio <= 1.0:
             raise ValueError("final_learning_rate_ratio must be in (0, 1]")
-        if self.loss not in {"mse", "huber"}:
-            raise ValueError("loss must be either 'mse' or 'huber'")
+        if self.loss not in {"mse", "huber", "pseudo_huber"}:
+            raise ValueError("loss must be 'mse', 'huber', or 'pseudo_huber'")
         if self.huber_delta <= 0:
             raise ValueError("huber_delta must be greater than 0")
         if self.permutation_repeats < 1:

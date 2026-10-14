@@ -71,8 +71,11 @@ def regression_loss(
         quadratic = jnp.minimum(abs_residuals, huber_delta)
         linear = abs_residuals - quadratic
         data_loss = jnp.mean(0.5 * quadratic**2 + huber_delta * linear)
+    elif loss == "pseudo_huber":
+        scaled = residuals / huber_delta
+        data_loss = jnp.mean(huber_delta**2 * (jnp.sqrt(1.0 + scaled**2) - 1.0))
     else:
-        raise ValueError("loss must be either 'mse' or 'huber'")
+        raise ValueError("loss must be 'mse', 'huber', or 'pseudo_huber'")
     return data_loss + l2_penalty * weight_penalty
 
 
@@ -179,8 +182,8 @@ def train_model(
         raise ValueError("warmup_epochs must be non-negative and smaller than epochs")
     if not 0.0 < config.final_learning_rate_ratio <= 1.0:
         raise ValueError("final_learning_rate_ratio must be in (0, 1]")
-    if config.loss not in {"mse", "huber"}:
-        raise ValueError("loss must be either 'mse' or 'huber'")
+    if config.loss not in {"mse", "huber", "pseudo_huber"}:
+        raise ValueError("loss must be 'mse', 'huber', or 'pseudo_huber'")
     if config.huber_delta <= 0:
         raise ValueError("huber_delta must be greater than 0")
 

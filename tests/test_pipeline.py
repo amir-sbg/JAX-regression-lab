@@ -229,6 +229,18 @@ def test_huber_loss_downweights_large_residuals() -> None:
     assert float(huber) == pytest.approx(2.3125)
 
 
+def test_pseudo_huber_is_smooth_and_robust_to_outliers() -> None:
+    parameters = ({"weights": jnp.zeros((1, 1)), "bias": jnp.zeros(1)},)
+    features = jnp.zeros((2, 1))
+    targets = jnp.array([0.0, 10.0])
+
+    robust = regression_loss(parameters, features, targets, loss="pseudo_huber", huber_delta=1.0)
+    mse = regression_loss(parameters, features, targets, loss="mse")
+
+    assert float(robust) > 0
+    assert float(robust) < float(mse)
+
+
 def test_learning_rate_schedule_warms_up_and_decays() -> None:
     config = TrainingConfig(
         epochs=6,

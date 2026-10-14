@@ -8,7 +8,7 @@ The project keeps the model intentionally small and makes the learning mechanics
 
 - deterministic train/validation/test splits with train-only standardization
 - ridge regression solved with `jax.numpy.linalg.solve`, with an optional validation-selected regularization path
-- MLP training with momentum, L2 regularization, early stopping, optional warmup, cosine decay, gradient clipping, MSE, or Huber loss
+- MLP training with momentum, L2 regularization, early stopping, optional warmup, cosine decay, gradient clipping, MSE, Huber, or smooth pseudo-Huber loss
 - JIT-compiled updates and vectorized prediction
 - RMSE, MAE, median and tail absolute error, R², residual, convergence, and model-comparison reports
 - bootstrap model comparison, conformal intervals, permutation importance, integrated gradients, collinearity, and curvature probes
