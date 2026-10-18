@@ -27,6 +27,7 @@ from .diagnostics import (
 )
 from .evaluate import (
     binned_residual_summary,
+    conditional_conformal_coverage,
     empirical_interval_summary,
     interval_calibration_curve,
     model_comparison_summary,
@@ -154,6 +155,20 @@ def run(config: ExperimentConfig) -> dict:
             ridge_predictions,
         ),
         "mlp": split_conformal_interval_summary(
+            validation_targets,
+            mlp_validation_predictions,
+            actual_targets,
+            mlp_predictions,
+        ),
+    }
+    conditional_coverage_report = {
+        "ridge": conditional_conformal_coverage(
+            validation_targets,
+            ridge_validation_predictions,
+            actual_targets,
+            ridge_predictions,
+        ),
+        "mlp": conditional_conformal_coverage(
             validation_targets,
             mlp_validation_predictions,
             actual_targets,
@@ -304,6 +319,7 @@ def run(config: ExperimentConfig) -> dict:
     save_json(residual_bins, config.report_dir / "residual_bins.json")
     save_json(interval_report, config.report_dir / "interval_summary.json")
     save_json(conformal_interval_report, config.report_dir / "conformal_intervals.json")
+    save_json(conditional_coverage_report, config.report_dir / "conditional_coverage.json")
     save_json(interval_calibration, config.report_dir / "interval_calibration.json")
     save_json(sensitivity_report, config.report_dir / "feature_sensitivity.json")
     save_json(attribution_report, config.report_dir / "integrated_gradients.json")
@@ -345,6 +361,7 @@ def run(config: ExperimentConfig) -> dict:
             "residual_bins": residual_bins,
             "intervals": interval_report,
             "conformal_intervals": conformal_interval_report,
+            "conditional_coverage": conditional_coverage_report,
             "top_feature_sensitivity": sensitivity_report["features"][:5],
             "top_integrated_gradients": attribution_report["features"][:5],
             "gradient_check": gradient_check_report,

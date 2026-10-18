@@ -252,6 +252,64 @@ def interval_calibration_curve(
     return rows
 
 
+def conditional_conformal_coverage(
+    calibration_targets,
+    calibration_predictions,
+    test_targets,
+    test_predictions,
+    coverage: float = 0.90,
+    bins: int = 4,
+) -> dict[str, object]:
+    """Audit split-conformal coverage across prediction ranges."""
+
+    if bins < 2:
+        raise ValueError("bins must be at least 2")
+    if not 0.0 < coverage < 1.0:
+        raise ValueError("coverage must be between 0 and 1")
+    calibration_actual, calibration_estimated = _matching_arrays(
+        calibration_targets,
+        calibration_predictions,
+    )
+    test_actual, test_estimated = _matching_arrays(test_targets, test_predictions)
+    calibration_errors = np.abs(calibration_estimated - calibration_actual)
+    quantile_level = min(
+        1.0,
+        np.ceil((len(calibration_errors) + 1) * coverage) / len(calibration_errors),
+    )
+    radius = _higher_quantile(calibration_errors, quantile_level)
+    edges = np.unique(np.quantile(test_estimated, np.linspace(0.0, 1.0, bins + 1)))
+    rows = []
+    for index in range(len(edges) - 1):
+        left, right = edges[index], edges[index + 1]
+        active = (test_estimated >= left) & (
+            test_estimated <= right if index == len(edges) - 2 else test_estimated < right
+        )
+        if not np.any(active):
+            continue
+        observed = float(np.mean(np.abs(test_estimated[active] - test_actual[active]) <= radius))
+        rows.append(
+            {
+                "bin": index + 1,
+                "prediction_min": float(left),
+                "prediction_max": float(right),
+                "examples": int(active.sum()),
+                "observed_coverage": observed,
+                "coverage_gap": float(observed - coverage),
+            }
+        )
+
+    worst = min((float(row["observed_coverage"]) for row in rows), default=0.0)
+    return {
+        "target_coverage": float(coverage),
+        "interval_radius": float(radius),
+        "bins_requested": int(bins),
+        "bins_observed": int(len(rows)),
+        "worst_bin_coverage": worst,
+        "worst_bin_undercoverage": float(max(0.0, coverage - worst)),
+        "bins": rows,
+    }
+
+
 def binned_residual_summary(
     targets,
     predictions,

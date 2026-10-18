@@ -25,6 +25,7 @@ from jax_regression.diagnostics import (
 )
 from jax_regression.evaluate import (
     binned_residual_summary,
+    conditional_conformal_coverage,
     empirical_interval_summary,
     interval_calibration_curve,
     model_comparison_summary,
@@ -427,6 +428,22 @@ def test_interval_calibration_curve_reports_each_requested_level() -> None:
     )
 
     assert [row["target_coverage"] for row in rows] == [0.50, 0.90]
+
+
+def test_conditional_conformal_coverage_audits_prediction_ranges() -> None:
+    report = conditional_conformal_coverage(
+        calibration_targets=np.array([0.0, 1.0, 2.0, 3.0]),
+        calibration_predictions=np.array([0.0, 1.0, 2.0, 3.0]),
+        test_targets=np.array([0.0, 1.0, 2.0, 5.0]),
+        test_predictions=np.array([0.0, 1.0, 2.0, 3.0]),
+        coverage=0.75,
+        bins=2,
+    )
+
+    assert report["bins_observed"] == 2
+    assert report["bins"][0]["observed_coverage"] == 1.0
+    assert report["bins"][1]["observed_coverage"] == 0.5
+    assert report["worst_bin_undercoverage"] == 0.25
 
 
 def test_split_conformal_interval_rejects_bad_coverage() -> None:
