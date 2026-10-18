@@ -10,6 +10,7 @@ from jax_regression.config import ExperimentConfig
 from jax_regression.data import load_regression_data
 from jax_regression.diagnostics import (
     design_matrix_report,
+    dominant_hessian_eigenvalue,
     directional_curvature,
     feature_correlation_pairs,
     feature_sensitivity,
@@ -650,6 +651,28 @@ def test_directional_curvature_reports_finite_values() -> None:
 
     assert report["probes"] == 3
     assert np.isfinite(report["mean_directional_curvature"])
+
+
+def test_dominant_hessian_eigenvalue_converges_for_linear_regression() -> None:
+    parameters = (
+        {
+            "weights": jnp.array([[0.5]], dtype=jnp.float32),
+            "bias": jnp.array([0.0], dtype=jnp.float32),
+        },
+    )
+    features = np.array([[-1.0], [0.0], [1.0]], dtype=np.float32)
+    targets = np.array([-1.0, 0.0, 1.0], dtype=np.float32)
+
+    report = dominant_hessian_eigenvalue(
+        parameters,
+        features,
+        targets,
+        jax.random.PRNGKey(4),
+        iterations=10,
+    )
+
+    assert report["dominant_eigenvalue"] > 0
+    assert report["eigenpair_residual_norm"] < 0.05
 
 
 def test_experiment_config_rejects_invalid_learning_rate() -> None:

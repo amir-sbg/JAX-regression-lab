@@ -469,6 +469,55 @@ def directional_curvature(
     }
 
 
+def dominant_hessian_eigenvalue(
+    parameters: tuple[dict[str, jax.Array], ...],
+    features: np.ndarray,
+    targets: np.ndarray,
+    key: jax.Array,
+    iterations: int = 12,
+    l2_penalty: float = 0.0,
+) -> dict[str, float | int]:
+    """Estimate local sharpness with power iteration over Hessian-vector products."""
+
+    if iterations < 1:
+        raise ValueError("iterations must be at least 1")
+    feature_array = _validated_feature_matrix(features)
+    target_array = np.asarray(targets, dtype=np.float32)
+    if target_array.ndim != 1 or len(target_array) != len(feature_array):
+        raise ValueError("targets must be a vector aligned with feature rows")
+
+    target_array = jnp.asarray(target_array)
+    grad_fn = jax.grad(lambda params: mse_loss(params, feature_array, target_array, l2_penalty))
+    direction = random_parameter_direction(parameters, key)
+    eigenvalue = 0.0
+    residual_norm = 0.0
+    for _ in range(iterations):
+        _, hessian_vector = jax.jvp(grad_fn, (parameters,), (direction,))
+        vector_norm = tree_l2_norm(hessian_vector)
+        if float(vector_norm) <= 1e-12:
+            eigenvalue = 0.0
+            residual_norm = 0.0
+            break
+        direction = jax.tree_util.tree_map(
+            lambda value: value / vector_norm,
+            hessian_vector,
+        )
+        _, hessian_vector = jax.jvp(grad_fn, (parameters,), (direction,))
+        eigenvalue = tree_dot(direction, hessian_vector)
+        residual = jax.tree_util.tree_map(
+            lambda hv, vector: hv - eigenvalue * vector,
+            hessian_vector,
+            direction,
+        )
+        residual_norm = float(tree_l2_norm(residual))
+
+    return {
+        "power_iterations": int(iterations),
+        "dominant_eigenvalue": float(eigenvalue),
+        "eigenpair_residual_norm": float(residual_norm),
+    }
+
+
 def _checked_predictions(predictions: np.ndarray, expected_shape: tuple[int, ...]) -> np.ndarray:
     values = np.asarray(predictions, dtype=np.float64)
     if values.shape != expected_shape:

@@ -15,6 +15,7 @@ from .data import load_regression_data
 from .diagnostics import (
     design_matrix_report,
     directional_curvature,
+    dominant_hessian_eigenvalue,
     feature_correlation_pairs,
     feature_sensitivity,
     integrated_gradient_importance,
@@ -268,6 +269,13 @@ def run(config: ExperimentConfig) -> dict:
             probes=config.curvature_probes,
             l2_penalty=config.l2_penalty,
         ),
+        "dominant_hessian": dominant_hessian_eigenvalue(
+            training.parameters,
+            data.x_validation,
+            data.y_validation,
+            jax.random.PRNGKey(config.seed + 29),
+            l2_penalty=config.l2_penalty,
+        ),
     }
     convergence_report = training_convergence_summary(training.history)
 
@@ -348,7 +356,7 @@ def run(config: ExperimentConfig) -> dict:
                 "top_correlated_pairs": feature_diagnostics["top_correlated_pairs"][:5],
             },
             "top_permutation_importance": permutation_report["mlp"][:5],
-            "curvature": curvature_report["mlp"],
+            "curvature": curvature_report,
             "training_convergence": convergence_report,
         },
         config.report_dir / "run_summary.json",
