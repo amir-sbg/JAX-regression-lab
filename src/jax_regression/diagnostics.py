@@ -202,6 +202,45 @@ def input_gradient_check(
     }
 
 
+def local_linearization_error(
+    parameters: tuple[dict[str, jax.Array], ...],
+    features: np.ndarray,
+    key: jax.Array,
+    perturbation_std: float = 0.05,
+    max_rows: int = 64,
+) -> dict[str, float | int]:
+    """Check how well the input Jacobian predicts nearby model behavior."""
+
+    if perturbation_std <= 0:
+        raise ValueError("perturbation_std must be positive")
+    if max_rows < 1:
+        raise ValueError("max_rows must be positive")
+    feature_array = _validated_feature_matrix(features)[:max_rows]
+    perturbations = perturbation_std * jax.random.normal(key, feature_array.shape)
+    gradient_fn = jax.grad(lambda row: mlp_apply(parameters, row))
+    gradients = jax.vmap(gradient_fn)(feature_array)
+    baseline = jax.vmap(lambda row: mlp_apply(parameters, row))(feature_array)
+    perturbed = jax.vmap(lambda row: mlp_apply(parameters, row))(
+        feature_array + perturbations
+    )
+    true_delta = perturbed - baseline
+    linear_delta = jnp.sum(gradients * perturbations, axis=1)
+    errors = np.asarray(linear_delta - true_delta, dtype=np.float64)
+    true_values = np.asarray(true_delta, dtype=np.float64)
+    denominator = float(np.sum((true_values - true_values.mean()) ** 2))
+    explained_variance = (
+        1.0 - float(np.sum(errors**2)) / denominator if denominator > 1e-12 else 1.0
+    )
+    return {
+        "examples": int(len(feature_array)),
+        "perturbation_std": float(perturbation_std),
+        "delta_rmse": float(np.sqrt(np.mean(errors**2))),
+        "delta_mae": float(np.mean(np.abs(errors))),
+        "max_absolute_error": float(np.max(np.abs(errors))),
+        "linearized_explained_variance": float(explained_variance),
+    }
+
+
 def feature_sensitivity(
     parameters: tuple[dict[str, jax.Array], ...],
     features: np.ndarray,

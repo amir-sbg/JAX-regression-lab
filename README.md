@@ -11,8 +11,8 @@ The project keeps the model intentionally small and makes the learning mechanics
 - MLP training with momentum, L2 regularization, early stopping, optional warmup, cosine decay, gradient clipping, MSE, Huber, or smooth pseudo-Huber loss
 - JIT-compiled updates and vectorized prediction
 - RMSE, MAE, median and tail absolute error, R², residual, convergence, and model-comparison reports
-- bootstrap comparison, conformal intervals, permutation importance, integrated gradients, collinearity, curvature, and parameter-noise stability probes
-- numerical finite-difference checks for input gradients and per-example parameter-gradient norms
+- bootstrap comparison, conformal intervals with conditional-coverage checks, permutation importance, integrated gradients, collinearity, and parameter-noise stability probes
+- finite-difference and local-linearization checks for input gradients, minibatch gradient agreement, per-example gradient norms, and dominant Hessian curvature
 - `.npz` parameter checkpoints with shape and finite-value validation
 
 The dataset has 442 samples, 10 numeric features, and a continuous target. Metrics and plots are reported on the original target scale.
@@ -61,8 +61,8 @@ The run writes model artifacts to `artifacts/` and reports to `reports/`, includ
 - `bootstrap_comparison.json` and `ridge_regularization_path.json` for model-selection uncertainty
 - `training_convergence.json` and `training_history.png` for loss, learning-rate, and gradient behavior
 - residual summaries and target-range bins
-- conformal interval and calibration reports
-- feature sensitivity, integrated gradients, feature-matrix conditioning, gradient checks, and curvature diagnostics
+- conformal interval, calibration, and prediction-range coverage reports
+- feature sensitivity, integrated gradients, feature-matrix conditioning, gradient agreement, local linearization, and curvature diagnostics
 - `mlp_parameters.npz` and `ridge_parameters.npy` for saved model parameters
 
 ## Project layout

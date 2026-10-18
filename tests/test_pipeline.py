@@ -16,6 +16,7 @@ from jax_regression.diagnostics import (
     feature_sensitivity,
     integrated_gradient_importance,
     input_gradient_check,
+    local_linearization_error,
     minibatch_gradient_agreement,
     per_example_gradient_norms,
     parameter_noise_stability,
@@ -517,6 +518,26 @@ def test_input_gradient_check_matches_linear_model() -> None:
 
     assert report["rows_checked"] == 2
     assert report["max_absolute_error"] < 1e-4
+
+
+def test_local_linearization_is_exact_for_a_linear_model() -> None:
+    parameters = (
+        {
+            "weights": jnp.array([[1.5], [-0.75]], dtype=jnp.float32),
+            "bias": jnp.array([0.2], dtype=jnp.float32),
+        },
+    )
+    features = np.array([[0.2, -1.0], [1.5, 0.4]], dtype=np.float32)
+
+    report = local_linearization_error(
+        parameters,
+        features,
+        jax.random.PRNGKey(9),
+        perturbation_std=0.1,
+    )
+
+    assert report["delta_rmse"] < 1e-6
+    assert report["linearized_explained_variance"] > 0.999
 
 
 def test_per_example_gradient_norms_surface_hard_examples() -> None:
