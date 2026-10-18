@@ -15,6 +15,7 @@ from jax_regression.diagnostics import (
     feature_sensitivity,
     integrated_gradient_importance,
     input_gradient_check,
+    minibatch_gradient_agreement,
     per_example_gradient_norms,
     parameter_noise_stability,
     permutation_importance,
@@ -510,6 +511,23 @@ def test_per_example_gradient_norms_surface_hard_examples() -> None:
     assert report["examples"] == 3
     assert report["max_gradient_example"] == 2
     assert report["p90_gradient_norm"] >= report["median_gradient_norm"]
+
+
+def test_minibatch_gradient_agreement_detects_consistent_linear_signal() -> None:
+    parameters = (
+        {
+            "weights": jnp.array([[1.0]], dtype=jnp.float32),
+            "bias": jnp.array([0.0], dtype=jnp.float32),
+        },
+    )
+    features = np.arange(1, 9, dtype=np.float32)[:, None]
+    targets = 2.0 * features[:, 0]
+
+    report = minibatch_gradient_agreement(parameters, features, targets, batch_size=2)
+
+    assert report["batches"] == 4
+    assert report["mean_cosine_to_full_gradient"] > 0.95
+    assert report["gradient_signal_to_noise_ratio"] > 0
 
 
 def test_parameter_noise_stability_is_seeded_and_finite() -> None:

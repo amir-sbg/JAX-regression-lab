@@ -7,7 +7,7 @@ import jax.numpy as jnp
 import numpy as np
 
 from .model import mlp_apply
-from .train import mse_loss, tree_l2_norm
+from .train import mse_loss, regression_loss, tree_l2_norm
 
 
 def _validated_feature_matrix(features: np.ndarray) -> jax.Array:
@@ -60,6 +60,70 @@ def per_example_gradient_norms(
         "p90_gradient_norm": float(np.quantile(norms, 0.90)),
         "max_gradient_norm": float(np.max(norms)),
         "max_gradient_example": int(np.argmax(norms)),
+    }
+
+
+def minibatch_gradient_agreement(
+    parameters: tuple[dict[str, jax.Array], ...],
+    features: np.ndarray,
+    targets: np.ndarray,
+    batch_size: int = 32,
+    loss: str = "mse",
+    huber_delta: float = 1.0,
+) -> dict[str, float | int]:
+    """Compare minibatch gradients with the full-data descent direction."""
+
+    feature_array = _validated_feature_matrix(features)
+    target_array = np.asarray(targets, dtype=np.float32)
+    if target_array.ndim != 1 or len(target_array) != len(feature_array):
+        raise ValueError("targets must be a vector aligned with feature rows")
+    if batch_size < 1:
+        raise ValueError("batch_size must be positive")
+
+    target_array = jnp.asarray(target_array)
+    gradient_fn = jax.grad(
+        lambda params, x, y: regression_loss(
+            params,
+            x,
+            y,
+            loss=loss,
+            huber_delta=huber_delta,
+        )
+    )
+    full_gradient = gradient_fn(parameters, feature_array, target_array)
+    full_norm = tree_l2_norm(full_gradient)
+    batch_gradients = []
+    for start in range(0, len(feature_array), batch_size):
+        stop = min(start + batch_size, len(feature_array))
+        batch_gradients.append(
+            gradient_fn(parameters, feature_array[start:stop], target_array[start:stop])
+        )
+
+    cosines = []
+    norms = []
+    for gradient in batch_gradients:
+        norm = tree_l2_norm(gradient)
+        norms.append(norm)
+        cosines.append(tree_dot(gradient, full_gradient) / float(norm * full_norm + 1e-12))
+
+    gradient_leaves = [jax.tree_util.tree_leaves(gradient) for gradient in batch_gradients]
+    stacked_leaves = [
+        jnp.stack([leaves[index] for leaves in gradient_leaves])
+        for index in range(len(gradient_leaves[0]))
+    ]
+    signal_sq = sum(jnp.sum(jnp.mean(leaf, axis=0) ** 2) for leaf in stacked_leaves)
+    noise_sq = sum(jnp.sum(jnp.var(leaf, axis=0)) for leaf in stacked_leaves)
+    norm_values = np.asarray(norms, dtype=np.float64)
+    cosine_values = np.asarray(cosines, dtype=np.float64)
+    return {
+        "batches": int(len(batch_gradients)),
+        "batch_size": int(batch_size),
+        "full_gradient_norm": float(full_norm),
+        "mean_batch_gradient_norm": float(norm_values.mean()),
+        "gradient_norm_cv": float(norm_values.std() / max(norm_values.mean(), 1e-12)),
+        "mean_cosine_to_full_gradient": float(cosine_values.mean()),
+        "min_cosine_to_full_gradient": float(cosine_values.min()),
+        "gradient_signal_to_noise_ratio": float(jnp.sqrt(signal_sq / (noise_sq + 1e-12))),
     }
 
 

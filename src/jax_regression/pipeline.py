@@ -19,6 +19,7 @@ from .diagnostics import (
     feature_sensitivity,
     integrated_gradient_importance,
     input_gradient_check,
+    minibatch_gradient_agreement,
     per_example_gradient_norms,
     parameter_noise_stability,
     permutation_importance,
@@ -203,6 +204,14 @@ def run(config: ExperimentConfig) -> dict:
         data.x_test,
         data.y_test,
     )
+    gradient_agreement_report = minibatch_gradient_agreement(
+        training.parameters,
+        data.x_train,
+        data.y_train,
+        batch_size=config.batch_size,
+        loss=config.loss,
+        huber_delta=config.huber_delta,
+    )
     parameter_stability_report = parameter_noise_stability(
         training.parameters,
         data.x_test,
@@ -292,6 +301,7 @@ def run(config: ExperimentConfig) -> dict:
     save_json(attribution_report, config.report_dir / "integrated_gradients.json")
     save_json(gradient_check_report, config.report_dir / "gradient_check.json")
     save_json(example_gradient_report, config.report_dir / "example_gradient_norms.json")
+    save_json(gradient_agreement_report, config.report_dir / "gradient_agreement.json")
     save_json(parameter_stability_report, config.report_dir / "parameter_stability.json")
     save_json(feature_diagnostics, config.report_dir / "feature_diagnostics.json")
     save_json(permutation_report, config.report_dir / "permutation_importance.json")
@@ -331,6 +341,7 @@ def run(config: ExperimentConfig) -> dict:
             "top_integrated_gradients": attribution_report["features"][:5],
             "gradient_check": gradient_check_report,
             "example_gradient_norms": example_gradient_report,
+            "gradient_agreement": gradient_agreement_report,
             "parameter_stability": parameter_stability_report,
             "feature_diagnostics": {
                 "train_design_matrix": feature_diagnostics["train_design_matrix"],
