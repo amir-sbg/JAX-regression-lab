@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-from collections.abc import Callable
-
 import jax
 import jax.numpy as jnp
 import numpy as np
 
-from .train import mse_loss, regression_loss, tree_l2_norm
+from .train import mse_loss, regression_loss
 from .model import mlp_apply
 
 

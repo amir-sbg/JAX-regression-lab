@@ -9,6 +9,16 @@ import jax
 import numpy as np
 import pandas as pd
 
+from .advanced_diagnostics import (
+    empirical_ntk_spectrum,
+    gradient_noise_scale,
+    hessian_trace_estimate,
+    loss_landscape_profile,
+    residual_distribution_report,
+    ridge_influence_report,
+    ridge_leverage_report,
+    target_quantile_error_report,
+)
 from .baseline import fit_ridge, predict_ridge, select_ridge_alpha
 from .config import ExperimentConfig, prepare_output_directories
 from .data import load_regression_data
@@ -299,6 +309,53 @@ def run(config: ExperimentConfig) -> dict:
         ),
     }
     convergence_report = training_convergence_summary(training.history)
+    advanced_diagnostics = {
+        "residual_distribution": {
+            "ridge": residual_distribution_report(actual_targets, ridge_predictions),
+            "mlp": residual_distribution_report(actual_targets, mlp_predictions),
+        },
+        "target_quantile_errors": {
+            "ridge": target_quantile_error_report(actual_targets, ridge_predictions),
+            "mlp": target_quantile_error_report(actual_targets, mlp_predictions),
+        },
+        "ridge_leverage": ridge_leverage_report(
+            data.x_train,
+            alpha=float(ridge_selection["selected_alpha"]),
+        ),
+        "ridge_influence": ridge_influence_report(
+            data.x_train,
+            data.y_train,
+            alpha=float(ridge_selection["selected_alpha"]),
+        ),
+        "hessian_trace": hessian_trace_estimate(
+            training.parameters,
+            data.x_validation,
+            data.y_validation,
+            jax.random.PRNGKey(config.seed + 41),
+            probes=max(4, config.curvature_probes),
+            l2_penalty=config.l2_penalty,
+        ),
+        "empirical_ntk": empirical_ntk_spectrum(
+            training.parameters,
+            data.x_validation,
+            max_samples=32,
+        ),
+        "gradient_noise": gradient_noise_scale(
+            training.parameters,
+            data.x_train,
+            data.y_train,
+            batch_size=config.batch_size,
+            loss=config.loss,
+            huber_delta=config.huber_delta,
+        ),
+        "loss_landscape": loss_landscape_profile(
+            training.parameters,
+            data.x_validation,
+            data.y_validation,
+            jax.random.PRNGKey(config.seed + 43),
+            l2_penalty=config.l2_penalty,
+        ),
+    }
 
     save_parameters(training.parameters, config.output_dir / "mlp_parameters.npz")
     np.save(config.output_dir / "ridge_parameters.npy", np.asarray(ridge_parameters))
@@ -338,6 +395,7 @@ def run(config: ExperimentConfig) -> dict:
     save_json(permutation_report, config.report_dir / "permutation_importance.json")
     save_json(curvature_report, config.report_dir / "curvature.json")
     save_json(convergence_report, config.report_dir / "training_convergence.json")
+    save_json(advanced_diagnostics, config.report_dir / "advanced_diagnostics.json")
     save_json(
         {
             "backend": jax.default_backend(),
@@ -383,6 +441,7 @@ def run(config: ExperimentConfig) -> dict:
             "top_permutation_importance": permutation_report["mlp"][:5],
             "curvature": curvature_report,
             "training_convergence": convergence_report,
+            "advanced_diagnostics": advanced_diagnostics,
         },
         config.report_dir / "run_summary.json",
     )

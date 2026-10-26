@@ -12,7 +12,8 @@ The project keeps the model intentionally small and makes the learning mechanics
 - JIT-compiled updates and vectorized prediction
 - RMSE, MAE, median and tail absolute error, R², residual, convergence, and model-comparison reports
 - bootstrap comparison, conformal intervals with conditional-coverage checks, permutation importance, integrated gradients, collinearity, and parameter-noise stability probes
-- finite-difference and local-linearization checks for input gradients, minibatch gradient agreement, per-example gradient norms, and dominant Hessian curvature
+- finite-difference and local-linearization checks for input gradients, minibatch gradient noise, per-example gradient norms, Hessian trace, and dominant curvature
+- ridge leverage and influence diagnostics, empirical neural-tangent-kernel spectrum, and a local loss-landscape profile
 - `.npz` parameter checkpoints with shape and finite-value validation
 
 The dataset has 442 samples, 10 numeric features, and a continuous target. Metrics and plots are reported on the original target scale.
@@ -63,6 +64,7 @@ The run writes model artifacts to `artifacts/` and reports to `reports/`, includ
 - residual summaries and target-range bins
 - conformal interval, calibration, and prediction-range coverage reports
 - feature sensitivity, integrated gradients, feature-matrix conditioning, gradient agreement, local linearization, and curvature diagnostics
+- `advanced_diagnostics.json` for influence, NTK, optimizer-noise, and loss-landscape checks
 - `mlp_parameters.npz` and `ridge_parameters.npy` for saved model parameters
 
 ## Project layout
@@ -75,6 +77,7 @@ src/jax_regression/
 ├── model.py        MLP, prediction, and checkpointing
 ├── train.py        losses, gradients, JIT update, and early stopping
 ├── evaluate.py     metrics, diagnostics, and plots
+├── advanced_diagnostics.py  influence and local-geometry analysis
 └── pipeline.py     command-line experiment
 tests/test_pipeline.py
 ```
