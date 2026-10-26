@@ -318,3 +318,55 @@ def gradient_noise_scale(
         "gradient_variance": variance,
         "noise_scale": float(variance / max(signal, np.finfo(float).eps)),
     }
+
+
+def loss_landscape_profile(
+    parameters,
+    features: np.ndarray,
+    targets: np.ndarray,
+    key: jax.Array,
+    radii: tuple[float, ...] = (-0.1, -0.05, 0.0, 0.05, 0.1),
+    l2_penalty: float = 0.0,
+) -> dict[str, float | list[dict[str, float]]]:
+    """Probe loss along one normalized parameter-space direction."""
+
+    features = np.asarray(features, dtype=np.float32)
+    targets = np.asarray(targets, dtype=np.float32)
+    if features.ndim != 2 or targets.ndim != 1 or len(features) != len(targets):
+        raise ValueError("features and targets must be aligned matrix and vector inputs")
+    if len(radii) < 3 or 0.0 not in radii:
+        raise ValueError("radii must include zero and at least two perturbations")
+    if l2_penalty < 0.0:
+        raise ValueError("l2_penalty must not be negative")
+
+    leaves, treedef = jax.tree_util.tree_flatten(parameters)
+    keys = jax.random.split(key, len(leaves))
+    direction_leaves = [
+        jax.random.normal(leaf_key, leaf.shape, dtype=leaf.dtype)
+        for leaf_key, leaf in zip(keys, leaves)
+    ]
+    norm = np.sqrt(sum(float(jnp.sum(value**2)) for value in direction_leaves))
+    direction = jax.tree_util.tree_unflatten(
+        treedef,
+        [value / max(norm, 1e-12) for value in direction_leaves],
+    )
+    x = jnp.asarray(features)
+    y = jnp.asarray(targets)
+    points = []
+    for radius in radii:
+        perturbed = jax.tree_util.tree_map(
+            lambda parameter, vector: parameter + radius * vector,
+            parameters,
+            direction,
+        )
+        value = float(mse_loss(perturbed, x, y, l2_penalty))
+        points.append({"radius": float(radius), "loss": value})
+
+    center_loss = next(point["loss"] for point in points if point["radius"] == 0.0)
+    edge_losses = [point["loss"] for point in points if point["radius"] != 0.0]
+    return {
+        "center_loss": center_loss,
+        "max_loss_increase": float(max(edge_losses) - center_loss),
+        "min_loss_increase": float(min(edge_losses) - center_loss),
+        "profile": points,
+    }

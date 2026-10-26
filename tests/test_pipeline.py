@@ -8,6 +8,7 @@ import jax.numpy as jnp
 from jax_regression.advanced_diagnostics import (
     empirical_ntk_spectrum,
     gradient_noise_scale,
+    loss_landscape_profile,
     hessian_trace_estimate,
     residual_distribution_report,
     ridge_influence_report,
@@ -390,6 +391,28 @@ def test_gradient_noise_scale_is_zero_for_repeated_examples() -> None:
     assert report["batches"] == 4
     assert report["gradient_variance"] == pytest.approx(0.0, abs=1e-8)
     assert report["noise_scale"] == pytest.approx(0.0, abs=1e-8)
+
+
+def test_loss_landscape_profile_has_minimum_at_linear_solution() -> None:
+    parameters = (
+        {
+            "weights": jnp.array([[1.0]], dtype=jnp.float32),
+            "bias": jnp.array([0.0], dtype=jnp.float32),
+        },
+    )
+    features = np.array([[-1.0], [0.0], [1.0]], dtype=np.float32)
+    targets = features[:, 0]
+
+    report = loss_landscape_profile(
+        parameters,
+        features,
+        targets,
+        jax.random.PRNGKey(19),
+    )
+
+    assert report["center_loss"] == pytest.approx(0.0, abs=1e-8)
+    assert report["min_loss_increase"] > 0.0
+    assert len(report["profile"]) == 5
 
 
 def test_metrics_reject_bad_inputs() -> None:
