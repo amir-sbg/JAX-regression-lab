@@ -172,3 +172,51 @@ def ridge_influence_report(
             for index in order
         ],
     }
+
+
+def hessian_trace_estimate(
+    parameters,
+    features: np.ndarray,
+    targets: np.ndarray,
+    key: jax.Array,
+    probes: int = 16,
+    l2_penalty: float = 0.0,
+) -> dict[str, float | int]:
+    """Estimate aggregate loss curvature with Hutchinson probes."""
+
+    features = np.asarray(features, dtype=np.float32)
+    targets = np.asarray(targets, dtype=np.float32)
+    if features.ndim != 2 or targets.ndim != 1 or len(features) != len(targets):
+        raise ValueError("features and targets must be aligned matrix and vector inputs")
+    if probes < 1:
+        raise ValueError("probes must be positive")
+    if l2_penalty < 0.0:
+        raise ValueError("l2_penalty must not be negative")
+
+    x = jnp.asarray(features)
+    y = jnp.asarray(targets)
+    gradient = jax.grad(lambda params: mse_loss(params, x, y, l2_penalty))
+    leaves, treedef = jax.tree_util.tree_flatten(parameters)
+    estimates = []
+    for probe_key in jax.random.split(key, probes):
+        leaf_keys = jax.random.split(probe_key, len(leaves))
+        vectors = [
+            jax.random.rademacher(leaf_key, leaf.shape, dtype=leaf.dtype)
+            for leaf_key, leaf in zip(leaf_keys, leaves)
+        ]
+        direction = jax.tree_util.tree_unflatten(treedef, vectors)
+        _, hessian_vector = jax.jvp(gradient, (parameters,), (direction,))
+        estimates.append(
+            sum(
+                float(jnp.vdot(vector, hv))
+                for vector, hv in zip(vectors, jax.tree_util.tree_leaves(hessian_vector))
+            )
+        )
+
+    values = np.asarray(estimates, dtype=np.float64)
+    return {
+        "probes": int(probes),
+        "trace_estimate": float(values.mean()),
+        "probe_std": float(values.std()),
+        "standard_error": float(values.std() / np.sqrt(probes)),
+    }

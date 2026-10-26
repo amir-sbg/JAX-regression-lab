@@ -6,6 +6,7 @@ import jax
 import jax.numpy as jnp
 
 from jax_regression.advanced_diagnostics import (
+    hessian_trace_estimate,
     residual_distribution_report,
     ridge_influence_report,
     ridge_leverage_report,
@@ -331,6 +332,28 @@ def test_ridge_influence_ranks_a_response_outlier_first() -> None:
     assert report["top_observations"][0]["index"] == 5
     assert report["influential_count"] >= 1
     assert report["max_cooks_distance"] > report["influence_threshold"]
+
+
+def test_hessian_trace_matches_a_small_linear_problem() -> None:
+    parameters = (
+        {
+            "weights": jnp.array([[0.5]], dtype=jnp.float32),
+            "bias": jnp.array([0.0], dtype=jnp.float32),
+        },
+    )
+    features = np.array([[-1.0], [0.0], [1.0]], dtype=np.float32)
+    targets = np.array([-1.0, 0.0, 1.0], dtype=np.float32)
+
+    report = hessian_trace_estimate(
+        parameters,
+        features,
+        targets,
+        jax.random.PRNGKey(8),
+        probes=128,
+    )
+
+    assert report["trace_estimate"] == pytest.approx(10 / 3, abs=0.2)
+    assert report["standard_error"] >= 0.0
 
 
 def test_metrics_reject_bad_inputs() -> None:
