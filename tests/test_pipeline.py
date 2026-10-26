@@ -7,6 +7,7 @@ import jax.numpy as jnp
 
 from jax_regression.advanced_diagnostics import (
     empirical_ntk_spectrum,
+    gradient_noise_scale,
     hessian_trace_estimate,
     residual_distribution_report,
     ridge_influence_report,
@@ -372,6 +373,23 @@ def test_empirical_ntk_reports_linear_model_rank() -> None:
     assert report["parameters"] == 2
     assert report["numerical_rank"] == 2
     assert report["top_eigenvalues"][0] > report["top_eigenvalues"][1] > 0.0
+
+
+def test_gradient_noise_scale_is_zero_for_repeated_examples() -> None:
+    parameters = (
+        {
+            "weights": jnp.array([[0.5]], dtype=jnp.float32),
+            "bias": jnp.array([0.0], dtype=jnp.float32),
+        },
+    )
+    features = np.ones((8, 1), dtype=np.float32)
+    targets = np.full(8, 2.0, dtype=np.float32)
+
+    report = gradient_noise_scale(parameters, features, targets, batch_size=2)
+
+    assert report["batches"] == 4
+    assert report["gradient_variance"] == pytest.approx(0.0, abs=1e-8)
+    assert report["noise_scale"] == pytest.approx(0.0, abs=1e-8)
 
 
 def test_metrics_reject_bad_inputs() -> None:

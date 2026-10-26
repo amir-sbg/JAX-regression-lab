@@ -262,3 +262,59 @@ def empirical_ntk_spectrum(
         "trace": float(eigenvalues.sum()),
         "top_eigenvalues": [float(value) for value in eigenvalues[:5]],
     }
+
+
+def gradient_noise_scale(
+    parameters,
+    features: np.ndarray,
+    targets: np.ndarray,
+    batch_size: int = 32,
+    loss: str = "mse",
+    huber_delta: float = 1.0,
+) -> dict[str, float | int]:
+    """Compare minibatch gradient variance with the full-data gradient signal."""
+
+    features = np.asarray(features, dtype=np.float32)
+    targets = np.asarray(targets, dtype=np.float32)
+    if features.ndim != 2 or targets.ndim != 1 or len(features) != len(targets):
+        raise ValueError("features and targets must be aligned matrix and vector inputs")
+    if batch_size < 1:
+        raise ValueError("batch_size must be positive")
+
+    x = jnp.asarray(features)
+    y = jnp.asarray(targets)
+    gradient_fn = jax.grad(
+        lambda params, batch_x, batch_y: regression_loss(
+            params,
+            batch_x,
+            batch_y,
+            loss=loss,
+            huber_delta=huber_delta,
+        )
+    )
+    full_gradient = gradient_fn(parameters, x, y)
+    full_leaves = [np.asarray(leaf).reshape(-1) for leaf in jax.tree_util.tree_leaves(full_gradient)]
+    full_vector = np.concatenate(full_leaves)
+
+    batch_vectors = []
+    for start in range(0, len(features), batch_size):
+        batch_gradient = gradient_fn(
+            parameters,
+            x[start : start + batch_size],
+            y[start : start + batch_size],
+        )
+        batch_vectors.append(
+            np.concatenate(
+                [np.asarray(leaf).reshape(-1) for leaf in jax.tree_util.tree_leaves(batch_gradient)]
+            )
+        )
+    stacked = np.stack(batch_vectors)
+    variance = float(np.mean(np.sum((stacked - full_vector) ** 2, axis=1)))
+    signal = float(np.sum(full_vector**2))
+    return {
+        "batches": int(len(batch_vectors)),
+        "batch_size": int(batch_size),
+        "gradient_signal_squared": signal,
+        "gradient_variance": variance,
+        "noise_scale": float(variance / max(signal, np.finfo(float).eps)),
+    }
