@@ -5,7 +5,10 @@ import pytest
 import jax
 import jax.numpy as jnp
 
-from jax_regression.advanced_diagnostics import residual_distribution_report
+from jax_regression.advanced_diagnostics import (
+    residual_distribution_report,
+    target_quantile_error_report,
+)
 from jax_regression.baseline import fit_ridge, predict_ridge, select_ridge_alpha
 from jax_regression.config import ExperimentConfig
 from jax_regression.data import load_regression_data
@@ -292,6 +295,18 @@ def test_residual_distribution_exposes_directional_bias() -> None:
     assert report["mean_residual"] < 0.0
     assert report["underprediction_rate"] == pytest.approx(0.75)
     assert np.isfinite(report["excess_kurtosis"])
+
+
+def test_target_quantile_report_finds_high_target_error() -> None:
+    targets = np.arange(8, dtype=float)
+    predictions = targets.copy()
+    predictions[-2:] -= 3.0
+
+    report = target_quantile_error_report(targets, predictions, bins=4)
+
+    assert report["populated_bins"] == 4
+    assert report["bins"][-1]["mae"] > report["bins"][0]["mae"]
+    assert sum(row["count"] for row in report["bins"]) == len(targets)
 
 
 def test_metrics_reject_bad_inputs() -> None:
