@@ -7,6 +7,7 @@ import jax.numpy as jnp
 import numpy as np
 
 from .train import mse_loss, regression_loss, tree_l2_norm
+from .model import mlp_apply
 
 
 def residual_distribution_report(
@@ -219,4 +220,45 @@ def hessian_trace_estimate(
         "trace_estimate": float(values.mean()),
         "probe_std": float(values.std()),
         "standard_error": float(values.std() / np.sqrt(probes)),
+    }
+
+
+def empirical_ntk_spectrum(
+    parameters,
+    features: np.ndarray,
+    max_samples: int = 64,
+) -> dict[str, float | int | list[float]]:
+    """Summarize the spectrum of the empirical neural tangent kernel."""
+
+    features = np.asarray(features, dtype=np.float32)
+    if features.ndim != 2 or len(features) == 0:
+        raise ValueError("features must be a non-empty two-dimensional matrix")
+    if max_samples < 2:
+        raise ValueError("max_samples must be at least 2")
+    selected = jnp.asarray(features[:max_samples])
+    gradient_fn = jax.grad(lambda params, row: mlp_apply(params, row))
+    rows = []
+    for row in selected:
+        gradient = gradient_fn(parameters, row)
+        rows.append(
+            np.concatenate(
+                [np.asarray(leaf).reshape(-1) for leaf in jax.tree_util.tree_leaves(gradient)]
+            )
+        )
+    jacobian = np.stack(rows)
+    kernel = jacobian @ jacobian.T / jacobian.shape[1]
+    eigenvalues = np.linalg.eigvalsh(kernel)
+    eigenvalues = np.clip(eigenvalues, 0.0, None)[::-1]
+    positive = eigenvalues[eigenvalues > max(1e-12, eigenvalues[0] * 1e-8)]
+    probabilities = positive / positive.sum() if len(positive) else np.array([1.0])
+    effective_rank = float(np.exp(-np.sum(probabilities * np.log(probabilities))))
+    condition_number = float(positive[0] / positive[-1]) if len(positive) else 0.0
+    return {
+        "samples": int(len(selected)),
+        "parameters": int(jacobian.shape[1]),
+        "numerical_rank": int(len(positive)),
+        "effective_rank": effective_rank,
+        "condition_number": condition_number,
+        "trace": float(eigenvalues.sum()),
+        "top_eigenvalues": [float(value) for value in eigenvalues[:5]],
     }

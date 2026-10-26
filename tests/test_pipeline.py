@@ -6,6 +6,7 @@ import jax
 import jax.numpy as jnp
 
 from jax_regression.advanced_diagnostics import (
+    empirical_ntk_spectrum,
     hessian_trace_estimate,
     residual_distribution_report,
     ridge_influence_report,
@@ -354,6 +355,23 @@ def test_hessian_trace_matches_a_small_linear_problem() -> None:
 
     assert report["trace_estimate"] == pytest.approx(10 / 3, abs=0.2)
     assert report["standard_error"] >= 0.0
+
+
+def test_empirical_ntk_reports_linear_model_rank() -> None:
+    parameters = (
+        {
+            "weights": jnp.array([[1.0]], dtype=jnp.float32),
+            "bias": jnp.array([0.0], dtype=jnp.float32),
+        },
+    )
+    features = np.array([[-1.0], [0.0], [1.0], [2.0]], dtype=np.float32)
+
+    report = empirical_ntk_spectrum(parameters, features)
+
+    assert report["samples"] == 4
+    assert report["parameters"] == 2
+    assert report["numerical_rank"] == 2
+    assert report["top_eigenvalues"][0] > report["top_eigenvalues"][1] > 0.0
 
 
 def test_metrics_reject_bad_inputs() -> None:
