@@ -82,3 +82,41 @@ def target_quantile_error_report(
             }
         )
     return {"requested_bins": bins, "populated_bins": len(rows), "bins": rows}
+
+
+def ridge_leverage_report(
+    features: np.ndarray,
+    alpha: float = 0.0,
+    top_k: int = 5,
+) -> dict[str, float | int | list[dict[str, float | int]]]:
+    """Report diagonal hat-matrix leverage for a ridge design matrix."""
+
+    features = np.asarray(features, dtype=np.float64)
+    if features.ndim != 2 or len(features) == 0:
+        raise ValueError("features must be a non-empty two-dimensional matrix")
+    if not np.all(np.isfinite(features)):
+        raise ValueError("features must contain only finite values")
+    if alpha < 0.0:
+        raise ValueError("alpha must not be negative")
+    if top_k < 1:
+        raise ValueError("top_k must be positive")
+
+    design = np.column_stack([features, np.ones(len(features))])
+    penalty = np.eye(design.shape[1]) * alpha
+    penalty[-1, -1] = 0.0
+    inverse = np.linalg.pinv(design.T @ design + penalty)
+    leverage = np.einsum("ij,jk,ik->i", design, inverse, design)
+    order = np.argsort(-leverage, kind="stable")[: min(top_k, len(features))]
+    threshold = 2.0 * design.shape[1] / len(features)
+    return {
+        "n_samples": int(len(features)),
+        "effective_parameters": float(leverage.sum()),
+        "mean_leverage": float(leverage.mean()),
+        "max_leverage": float(leverage.max()),
+        "high_leverage_threshold": float(threshold),
+        "high_leverage_count": int(np.sum(leverage > threshold)),
+        "top_observations": [
+            {"index": int(index), "leverage": float(leverage[index])}
+            for index in order
+        ],
+    }

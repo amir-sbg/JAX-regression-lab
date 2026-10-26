@@ -7,6 +7,7 @@ import jax.numpy as jnp
 
 from jax_regression.advanced_diagnostics import (
     residual_distribution_report,
+    ridge_leverage_report,
     target_quantile_error_report,
 )
 from jax_regression.baseline import fit_ridge, predict_ridge, select_ridge_alpha
@@ -307,6 +308,16 @@ def test_target_quantile_report_finds_high_target_error() -> None:
     assert report["populated_bins"] == 4
     assert report["bins"][-1]["mae"] > report["bins"][0]["mae"]
     assert sum(row["count"] for row in report["bins"]) == len(targets)
+
+
+def test_ridge_leverage_surfaces_an_extreme_design_row() -> None:
+    features = np.array([[0.0], [0.1], [-0.1], [0.2], [8.0]])
+
+    report = ridge_leverage_report(features, alpha=0.1, top_k=2)
+
+    assert report["top_observations"][0]["index"] == 4
+    assert report["max_leverage"] > report["mean_leverage"]
+    assert 0.0 < report["effective_parameters"] <= 2.0
 
 
 def test_metrics_reject_bad_inputs() -> None:
