@@ -7,6 +7,7 @@ import jax.numpy as jnp
 
 from jax_regression.advanced_diagnostics import (
     residual_distribution_report,
+    ridge_influence_report,
     ridge_leverage_report,
     target_quantile_error_report,
 )
@@ -318,6 +319,18 @@ def test_ridge_leverage_surfaces_an_extreme_design_row() -> None:
     assert report["top_observations"][0]["index"] == 4
     assert report["max_leverage"] > report["mean_leverage"]
     assert 0.0 < report["effective_parameters"] <= 2.0
+
+
+def test_ridge_influence_ranks_a_response_outlier_first() -> None:
+    features = np.arange(10, dtype=float).reshape(-1, 1)
+    targets = 2.0 * features[:, 0] + 1.0
+    targets[5] += 20.0
+
+    report = ridge_influence_report(features, targets, top_k=3)
+
+    assert report["top_observations"][0]["index"] == 5
+    assert report["influential_count"] >= 1
+    assert report["max_cooks_distance"] > report["influence_threshold"]
 
 
 def test_metrics_reject_bad_inputs() -> None:

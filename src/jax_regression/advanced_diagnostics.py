@@ -120,3 +120,55 @@ def ridge_leverage_report(
             for index in order
         ],
     }
+
+
+def ridge_influence_report(
+    features: np.ndarray,
+    targets: np.ndarray,
+    alpha: float = 0.0,
+    top_k: int = 5,
+) -> dict[str, float | int | list[dict[str, float | int]]]:
+    """Rank training rows by an approximate Cook's distance for ridge regression."""
+
+    features = np.asarray(features, dtype=np.float64)
+    targets = np.asarray(targets, dtype=np.float64)
+    if features.ndim != 2 or targets.ndim != 1 or len(features) != len(targets):
+        raise ValueError("features and targets must be aligned matrix and vector inputs")
+    if len(features) <= features.shape[1] + 1:
+        raise ValueError("more rows than fitted coefficients are required")
+    if not np.all(np.isfinite(features)) or not np.all(np.isfinite(targets)):
+        raise ValueError("features and targets must contain only finite values")
+    if alpha < 0.0 or top_k < 1:
+        raise ValueError("alpha must not be negative and top_k must be positive")
+
+    design = np.column_stack([features, np.ones(len(features))])
+    penalty = np.eye(design.shape[1]) * alpha
+    penalty[-1, -1] = 0.0
+    inverse = np.linalg.pinv(design.T @ design + penalty)
+    coefficients = inverse @ design.T @ targets
+    residuals = targets - design @ coefficients
+    leverage = np.einsum("ij,jk,ik->i", design, inverse, design)
+    degrees_of_freedom = max(1, len(features) - design.shape[1])
+    residual_variance = float(np.sum(residuals**2) / degrees_of_freedom)
+    denominator = design.shape[1] * max(residual_variance, np.finfo(float).eps)
+    cooks_distance = (residuals**2 / denominator) * (
+        leverage / np.maximum((1.0 - leverage) ** 2, np.finfo(float).eps)
+    )
+    order = np.argsort(-cooks_distance, kind="stable")[: min(top_k, len(features))]
+    threshold = 4.0 / len(features)
+    return {
+        "n_samples": int(len(features)),
+        "residual_variance": residual_variance,
+        "influence_threshold": float(threshold),
+        "influential_count": int(np.sum(cooks_distance > threshold)),
+        "max_cooks_distance": float(cooks_distance.max()),
+        "top_observations": [
+            {
+                "index": int(index),
+                "cooks_distance": float(cooks_distance[index]),
+                "leverage": float(leverage[index]),
+                "residual": float(residuals[index]),
+            }
+            for index in order
+        ],
+    }
